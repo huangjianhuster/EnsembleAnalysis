@@ -31,6 +31,121 @@ three2one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
                     'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M',
                     'HSD': 'H', 'HSE': 'H'}
 
+# from MDanalysis: https://userguide.mdanalysis.org/stable/examples/analysis/custom_parallel_analysis.html
+def radgyr_per_frame(frame_index, atomgroup, masses):
+    # index the trajectory to set it to the frame_index frame
+    atomgroup.universe.trajectory[frame_index]
+
+    # coordinates change for each frame
+    coordinates = atomgroup.positions
+    center_of_mass = atomgroup.center_of_mass()
+
+    # get squared distance from center
+    ri_sq = (coordinates-center_of_mass)**2
+    # sum the unweighted positions
+    sq = np.sum(ri_sq, axis=1)
+    sq_x = np.sum(ri_sq[:,[1,2]], axis=1) # sum over y and z
+    sq_y = np.sum(ri_sq[:,[0,2]], axis=1) # sum over x and z
+    sq_z = np.sum(ri_sq[:,[0,1]], axis=1) # sum over x and y
+
+    # make into array
+    sq_rs = np.array([sq, sq_x, sq_y, sq_z])
+
+    # weight positions
+    rog_sq = np.sum(masses*sq_rs, axis=1)/np.sum(masses)
+    # square root and return
+    return np.sqrt(rog_sq)
+
+# use "DSSP" for secondary structure calculation
+# deprecated due to slow calculation speed
+def dssp_per_frame(frame_index, atomgroup):
+    # index the trajectory to set it to the frame_index frame
+    atomgroup.universe.trajectory[frame_index]
+    tmp_pdb = "tmp.pdb"
+    atomgroup.write(tmp_pdb)
+    structure = PDBParser(QUIET=True).get_structure("structure_id", tmp_pdb)
+    model = structure[0]
+    dssp = DSSP(model, tmp_pdb, dssp='mkdssp')
+    resid = []
+    ss = []
+    for i,j in zip(list(dssp.keys()), list(model.get_residues())):
+        # resid.append(dssp[i][0])
+        ss.append(dssp[i][2])
+        resid.append(j.full_id[-1][1])
+    return resid, ss
+
+def end2end_per_frame(frame_index, atomgroup):
+    # index the trajectory to set it to the frame_index frame
+    atomgroup.universe.trajectory[frame_index]
+    # select n-term N atom
+    nterm = atomgroup.select_atoms(f'protein and name N')[0]
+    # selct c-term C atom
+    cterm = atomgroup.select_atoms(f'protein and name C')[-1]
+    r = cterm.position - nterm.position  # end-to-end vector from atom positions
+    d = np.linalg.norm(r)   # end-to-end distance
+    return d
+
+def bonds_per_frame(frame_index, atomgroup, atom1_name, atom2_name):
+    """
+    atomgroup: atomgroup from MDAnalysis
+    atom1_name: atom name of the first atom
+    atom2_name: atom name of the second atom
+    return: bond length array (unit: Angstrom)
+    """
+    atomgroup.universe.trajectory[frame_index]
+    bonds = [bond.value() for bond in atomgroup.bonds if \
+                (bond.atoms[0].name == atom1_name and bond.atoms[1].name == atom2_name) or \
+                (bond.atoms[0].name == atom2_name and bond.atoms[1].name == atom1_name)]
+    return np.array(bonds)
+
+def angles_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_name):
+    """
+    atomgroup: atomgroup from MDAnalysis
+    atom1_name: atom name of the first atom
+    atom2_name: atom name of the second atom
+    atom3_name: atom name of the third atom
+    return: angle array (unit: degree)
+    """
+    atomgroup.universe.trajectory[frame_index]
+    angles = [angle.value() for angle in atomgroup.angles \
+              if (angle.atoms[0].name == atom1_name and angle.atoms[1].name == atom2_name and angle.atoms[2].name == atom3_name) or \
+                (angle.atoms[0].name == atom3_name and angle.atoms[1].name == atom2_name and angle.atoms[2].name == atom1_name)]
+    return np.array(angles)
+
+def dihedrals_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_name, atom4_name):
+    """
+    atomgroup: atomgroup from MDAnalysis
+    atom1_name: atomname of the first atom
+    atom2_name: atomname of the second atom
+    atom3_name: atomname of the third atom
+    atom4_name: atomname of the fourth atom
+    return: dihedral array (unit: degree)
+    """
+    atomgroup.universe.trajectory[frame_index]
+    dihedral = [dihedral.value() for dihedral in atomgroup.dihedrals \
+              if (dihedral.atoms[0].name == atom1_name and dihedral.atoms[1].name == atom2_name \
+                  and dihedral.atoms[2].name == atom3_name and dihedral.atoms[3].name == atom4_name)]
+    return np.array(dihedral)
+
+def bb_impropers_per_frame(frame_index, atomgroup):
+    """
+    atomgroup: atomgroup from MDAnalysis
+    return: dihedral array (unit: degree)
+
+    backbone dihedrals: (two for each residue)
+        C CA N O
+        N C CA H
+    """
+    atomgroup.universe.trajectory[frame_index]
+    bb_impropers = [ improper.value() for improper in atomgroup.impropers if \
+                 (improper.atoms[0].type == "C" and improper.atoms[1].type == "CT1" and \
+                  improper.atoms[2].type == "NH1" and improper.atoms[3].type == "O") or \
+                  (improper.atoms[0].type == "NH1" and improper.atoms[1].type == "C" and \
+                  improper.atoms[2].type == "CT1" and improper.atoms[3].type == "H") \
+                    ]
+    return bb_impropers
+
+
 class Ensemble:
     def __init__(self, psf_file, xtc_file, top_file=None):
         self.psf = psf_file
@@ -306,16 +421,6 @@ class Ensemble:
         atom_names = [(atom.name, atom.type) for atom in res]
         return atom_names
 
-    def get_dihedral(self, resid, atom1_name, atom2_name, atom3_name, atom4_name):
-        """
-            for a specifc diheral angles of a specific residue
-
-            resid: int;
-            atom1_name, atom2_name, atom3_name, atom4_name: name of atoms based on the given psf
-        """
-        ags = [ self.universe.select_atoms(f"resid {resid} and name {atom1_name} {atom2_name} {atom3_name} {atom4_name}")]
-        R = Dihedral(ags).run()
-        return R.results.angles
 
     # MDAnalysis provides us with Dihedral module:
     # https://docs.mdanalysis.org/1.1.0/documentation_pages/analysis/dihedrals.html
@@ -411,119 +516,6 @@ class Ensemble:
         return impropers
 
 
-# from MDanalysis: https://userguide.mdanalysis.org/stable/examples/analysis/custom_parallel_analysis.html
-def radgyr_per_frame(frame_index, atomgroup, masses):
-    # index the trajectory to set it to the frame_index frame
-    atomgroup.universe.trajectory[frame_index]
-
-    # coordinates change for each frame
-    coordinates = atomgroup.positions
-    center_of_mass = atomgroup.center_of_mass()
-
-    # get squared distance from center
-    ri_sq = (coordinates-center_of_mass)**2
-    # sum the unweighted positions
-    sq = np.sum(ri_sq, axis=1)
-    sq_x = np.sum(ri_sq[:,[1,2]], axis=1) # sum over y and z
-    sq_y = np.sum(ri_sq[:,[0,2]], axis=1) # sum over x and z
-    sq_z = np.sum(ri_sq[:,[0,1]], axis=1) # sum over x and y
-
-    # make into array
-    sq_rs = np.array([sq, sq_x, sq_y, sq_z])
-
-    # weight positions
-    rog_sq = np.sum(masses*sq_rs, axis=1)/np.sum(masses)
-    # square root and return
-    return np.sqrt(rog_sq)
-
-# use "DSSP" for secondary structure calculation
-# deprecated due to slow calculation speed
-def dssp_per_frame(frame_index, atomgroup):
-    # index the trajectory to set it to the frame_index frame
-    atomgroup.universe.trajectory[frame_index]
-    tmp_pdb = "tmp.pdb"
-    atomgroup.write(tmp_pdb)
-    structure = PDBParser(QUIET=True).get_structure("structure_id", tmp_pdb)
-    model = structure[0]
-    dssp = DSSP(model, tmp_pdb, dssp='mkdssp')
-    resid = []
-    ss = []
-    for i,j in zip(list(dssp.keys()), list(model.get_residues())):
-        # resid.append(dssp[i][0])
-        ss.append(dssp[i][2])
-        resid.append(j.full_id[-1][1])
-    return resid, ss
-
-def end2end_per_frame(frame_index, atomgroup):
-    # index the trajectory to set it to the frame_index frame
-    atomgroup.universe.trajectory[frame_index]
-    # select n-term N atom
-    nterm = atomgroup.select_atoms(f'protein and name N')[0]
-    # selct c-term C atom
-    cterm = atomgroup.select_atoms(f'protein and name C')[-1]
-    r = cterm.position - nterm.position  # end-to-end vector from atom positions
-    d = np.linalg.norm(r)   # end-to-end distance
-    return d
-
-def bonds_per_frame(frame_index, atomgroup, atom1_name, atom2_name):
-    """
-    atomgroup: atomgroup from MDAnalysis
-    atom1_name: atom name of the first atom
-    atom2_name: atom name of the second atom
-    return: bond length array (unit: Angstrom)
-    """
-    atomgroup.universe.trajectory[frame_index]
-    bonds = [bond.value() for bond in atomgroup.bonds if \
-                (bond.atoms[0].name == atom1_name and bond.atoms[1].name == atom2_name) or \
-                (bond.atoms[0].name == atom2_name and bond.atoms[1].name == atom1_name)]
-    return np.array(bonds)
-
-def angles_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_name):
-    """
-    atomgroup: atomgroup from MDAnalysis
-    atom1_name: atom name of the first atom
-    atom2_name: atom name of the second atom
-    atom3_name: atom name of the third atom
-    return: angle array (unit: degree)
-    """
-    atomgroup.universe.trajectory[frame_index]
-    angles = [angle.value() for angle in atomgroup.angles \
-              if (angle.atoms[0].name == atom1_name and angle.atoms[1].name == atom2_name and angle.atoms[2].name == atom3_name) or \
-                (angle.atoms[0].name == atom3_name and angle.atoms[1].name == atom2_name and angle.atoms[2].name == atom1_name)]
-    return np.array(angles)
-
-def dihedrals_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_name, atom4_name):
-    """
-    atomgroup: atomgroup from MDAnalysis
-    atom1_name: atomname of the first atom
-    atom2_name: atomname of the second atom
-    atom3_name: atomname of the third atom
-    atom4_name: atomname of the fourth atom
-    return: dihedral array (unit: degree)
-    """
-    atomgroup.universe.trajectory[frame_index]
-    dihedral = [dihedral.value() for dihedral in atomgroup.dihedrals \
-              if (dihedral.atoms[0].name == atom1_name and dihedral.atoms[1].name == atom2_name \
-                  and dihedral.atoms[2].name == atom3_name and dihedral.atoms[3].name == atom4_name)]
-    return np.array(dihedral)
-
-def bb_impropers_per_frame(frame_index, atomgroup):
-    """
-    atomgroup: atomgroup from MDAnalysis
-    return: dihedral array (unit: degree)
-
-    backbone dihedrals: (two for each residue)
-        C CA N O
-        N C CA H
-    """
-    atomgroup.universe.trajectory[frame_index]
-    bb_impropers = [ improper.value() for improper in atomgroup.impropers if \
-                 (improper.atoms[0].type == "C" and improper.atoms[1].type == "CT1" and \
-                  improper.atoms[2].type == "NH1" and improper.atoms[3].type == "O") or \
-                  (improper.atoms[0].type == "NH1" and improper.atoms[1].type == "C" and \
-                  improper.atoms[2].type == "CT1" and improper.atoms[3].type == "H") \
-                    ]
-    return bb_impropers
 
 
 

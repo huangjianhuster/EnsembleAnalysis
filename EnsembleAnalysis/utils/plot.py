@@ -8,7 +8,7 @@ from scipy.stats import norm
 import MDAnalysis as mda
 
 # Plot histogram
-def hist_plot(arr, ax=None, fit=True, **kwargs):
+def hist_plot(arr, ax=None, bins=20, fit=True, **kwargs):
     """
     arr: numpy ndarray, 1 dimension
     ax: matplotlib.axes._axes.Axes
@@ -18,7 +18,7 @@ def hist_plot(arr, ax=None, fit=True, **kwargs):
     if ax is None:
         fig, ax = plt.subplots(1,1,figsize=(6,4))
 
-    counts, bins, patches = ax.hist(arr, bins=20, density=True, \
+    counts, bins, patches = ax.hist(arr, bins=bins, density=True, \
                             facecolor='skyblue', edgecolor='white', **kwargs)
 
     if fit:
@@ -26,8 +26,7 @@ def hist_plot(arr, ax=None, fit=True, **kwargs):
         print(f"Fitted Gaussian: μ = {mu:.2f}, σ = {sigma:.2f}")
         x = np.linspace(bins[0], bins[-1], 1000)
         pdf = norm.pdf(x, mu, sigma)
-        ax.plot(x, pdf, '--', linewidth=2, label=f'Fit: μ={mu:.2f}, σ={sigma:.2f}')
-    ax.legend(loc="upper right")
+        ax.plot(x, pdf, '--', linewidth=2, label=f'μ={mu:.2f}, σ={sigma:.2f}')
     return counts, bins, patches
 
 
@@ -69,7 +68,7 @@ def errorbar_plot(arr1, arr2, yerror=None, xerror=None, ax=None, **kwargs):
     kwargs: keyword arguments in plt.errorbar
     """
     if (not xerror) and (not yerror):
-        raise ValueError(either xerror or yerror should be given!)
+        raise ValueError("either xerror or yerror should be given!")
 
     if ax is None:
         fig, ax = plt.subplots(1,1,figsize=(6,4))
