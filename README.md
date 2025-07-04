@@ -14,5 +14,10 @@ Features:
 pip install .
 ```
 
+For developer:
+```python
+pip install -e .
+```
+
 # Examples
 To be continued!

@@ -456,7 +456,7 @@ if __name__ == "__main__":
     ax2 = fig.add_subplot(gs[1, 0])
     ax3 = fig.add_subplot(gs[1, 1])
     # ax0 for line
-    line_plot(line_data['sine_wave'][0], line_data['sine_wave'][1], ax=ax0)
+    line_plot(line_data['sine_wave'][0], line_data['sine_wave'][1], ax=ax0, decoration=True)
     # ax1 for hist
     hist_plot(hist_data['normal'], ax=ax1, bins=50, fit=True)
     # ax2 for errorbar
