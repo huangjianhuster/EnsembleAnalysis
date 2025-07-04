@@ -1,0 +1,20 @@
+import importlib.resources as pkg_resources
+from EnsembleAnalysis import database
+from psfgen import PsfGen
+
+# force field file
+ff_path = pkg_resources.files(database).joinpath("top_all22_prot.rtf").__fspath__()
+
+# now only consider one chain
+def generate_psf_from_pdb(pdb, outpsf, N_ter_patch='NTER', C_ter_patch='CTER'):
+    global ff_path
+    gen = PsfGen()
+    gen.read_topology(ff_path)
+
+    segid='A'
+    gen.add_segment(segid=segid, pdbfile=pdb)
+
+    gen.patch(N_ter_patch, [(segid, gen.get_resids(segid)[0]),])
+    gen.patch(C_ter_patch, [(segid, gen.get_resids(segid)[-1]),])
+
+    gen.write_psf(outpsf)
