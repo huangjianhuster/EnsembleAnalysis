@@ -1,19 +1,81 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "your-package-name"
+name = "EnsembleAnalysis"
 version = "0.1.0"
-description = "A simple example package"
-authors = [
-  {name = "Your Name", email = "you@example.com"}
-]
+description = "A simple Python package for analyzing conformational ensembles"
 readme = "README.md"
+requires-python = ">=3.12"
 license = {text = "MIT"}
-requires-python = ">=3.7"
-dependencies = []
+authors = [
+    {name = "Jian Huang", email = "huangjianhuster@gmail.com"}
+]
+maintainers = [
+    {name = "Jian Huang", email = "huangjianhuster@gmail.com"}
+]
+keywords = ["molecular dynamics", "conformational analysis", "ensemble analysis", "bioinformatics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=1.26.2",
+    "MDAnalysis>=2.8.0",
+    "MDtraj>=1.11.0",
+    "biopython>=1.85",
+    "scipy>=1.11.4",
+    "matplotlib>=3.10.0",
+]
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-packages = ["your_package_name"]
+[project.urls]
+Homepage = "https://github.com/huangjianhuster/EnsembleAnalysis"
+Repository = "https://github.com/huangjianhuster/EnsembleAnalysis"
+Issues = "https://github.com/huangjianhuster/EnsembleAnalysis/issues"
+Documentation = "https://github.com/huangjianhuster/EnsembleAnalysis#readme"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=22.0",
+    "flake8>=5.0",
+    "mypy>=1.0",
+]
+docs = [
+    "sphinx>=5.0",
+    "sphinx-rtd-theme>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["EnsembleAnalysis*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"EnsembleAnalysis" = ["database/*"]
+
+# Optional: Add tools configuration
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
