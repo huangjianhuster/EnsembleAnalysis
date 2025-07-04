@@ -4,8 +4,11 @@
 # Dependencies
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+import matplotlib as mpl
+from matplotlib.gridspec import GridSpec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import norm
-import MDAnalysis as mda
 
 # Plot histogram
 def hist_plot(arr, ax=None, bins=20, fit=True, **kwargs):
@@ -67,7 +70,7 @@ def errorbar_plot(arr1, arr2, yerror=None, xerror=None, ax=None, **kwargs):
     ax: matplotlib.axes._axes.Axes
     kwargs: keyword arguments in plt.errorbar
     """
-    if (not xerror) and (not yerror):
+    if xerror is None and yerror is None:
         raise ValueError("either xerror or yerror should be given!")
 
     if ax is None:
@@ -81,10 +84,10 @@ def errorbar_plot(arr1, arr2, yerror=None, xerror=None, ax=None, **kwargs):
     eline_color = kwargs.get('ecolor', 'grey')
     capsize = kwargs.get('capsize', 2)
     marker = kwargs.get('marker', 'o')
-    marker_size = kwargs.get('markersize', 6)
+    marker_size = kwargs.get('markersize', 4)
+    zorder = kwargs.get('zorder', 3)
 
-    if xerror and (not yerror):
-        ax.errorbar(arr1, arr2, xerr=xerror,
+    ax.errorbar(arr1, arr2, yerr=yerror, xerr=xerror,
                     marker = marker,
                     markersize = marker_size,
                     color = line_color,
@@ -93,24 +96,14 @@ def errorbar_plot(arr1, arr2, yerror=None, xerror=None, ax=None, **kwargs):
                     capsize = capsize,
                     ecolor = eline_color,
                     elinewidth = eline_width,
-                    **kwargs)
-    if yerror and (not xerror):
-        ax.errorbar(arr1, arr2, yerr=yerror,
-                    marker = marker,
-                    markersize = marker_size,
-                    color = line_color,
-                    linestyle = line_style,
-                    linewidth = line_width,
-                    capsize = capsize,
-                    ecolor = eline_color,
-                    elinewidth = eline_width,
+                    zorder=zorder,
                     **kwargs)
 
     return ax
 
 
 # Plot Ramachandra plot
-def plot_2d_histogram_angles(x, y, bins=50, log_scale=True, contours=True,
+def hist2d_contour_plot(x, y, bins=50, log_scale=True, contours=True,
                             fig=None, ax=None, **kwargs):
     """
     Create a 2D histogram with contours for angle data (-180 to 180 degrees).
@@ -300,3 +293,176 @@ def plot_2d_histogram_angles(x, y, bins=50, log_scale=True, contours=True,
 
     return fig, ax, hist, xedges, yedges, cbar_ax
 
+
+# Some helper functon to generate synthetic data
+np.random.seed(42)
+def generate_line_plot_data():
+    """Generate synthetic data for line plots"""
+    
+    # Dataset 1: Simple sine wave with noise
+    x1 = np.linspace(0, 4*np.pi, 100)
+    y1 = np.sin(x1) + 0.1 * np.random.randn(100)
+    
+    # Dataset 2: Exponential decay
+    x2 = np.linspace(0, 5, 80)
+    y2 = 2 * np.exp(-x2/2) + 0.05 * np.random.randn(80)
+    
+    # Dataset 3: Polynomial trend
+    x3 = np.linspace(-2, 2, 60)
+    y3 = x3**3 - 2*x3**2 + x3 + 0.2 * np.random.randn(60)
+    
+    # Dataset 4: Time series-like data
+    x4 = np.arange(0, 100)
+    y4 = np.cumsum(np.random.randn(100)) + 0.02 * x4
+    
+    return {
+        'sine_wave': (x1, y1),
+        'exponential_decay': (x2, y2),
+        'polynomial': (x3, y3),
+        'time_series': (x4, y4)
+    }
+
+def generate_histogram_data():
+    """Generate synthetic data for 1D histograms"""
+    
+    # Dataset 1: Normal distribution
+    normal_data = np.random.normal(50, 15, 1000)
+    
+    # Dataset 2: Bimodal distribution
+    bimodal_data = np.concatenate([
+        np.random.normal(30, 8, 500),
+        np.random.normal(70, 12, 500)
+    ])
+    
+    # Dataset 3: Skewed distribution (gamma)
+    skewed_data = np.random.gamma(2, 2, 1000)
+    
+    # Dataset 4: Uniform distribution
+    uniform_data = np.random.uniform(0, 100, 800)
+    
+    # Dataset 5: Exponential distribution
+    exponential_data = np.random.exponential(2, 1000)
+    
+    # Dataset 6: Mixed distribution (realistic molecular dynamics data)
+    md_like_data = np.concatenate([
+        np.random.normal(10, 2, 300),    # Main population
+        np.random.normal(15, 1, 150),    # Secondary population
+        np.random.exponential(1, 50) + 20  # Rare events
+    ])
+    
+    return {
+        'normal': normal_data,
+        'bimodal': bimodal_data,
+        'skewed': skewed_data,
+        'uniform': uniform_data,
+        'exponential': exponential_data,
+        'md_like': md_like_data
+    }
+
+def generate_errorbar_data():
+    """Generate synthetic data for errorbar plots"""
+    
+    # Dataset 1: Experimental measurements with varying error
+    x1 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    y1 = 2 * x1 + 3 + np.random.randn(10) * 0.5
+    yerr1 = np.random.uniform(0.2, 1.0, 10)
+    
+    # Dataset 2: Concentration vs response with error bars
+    concentrations = np.array([0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0])
+    response = 100 * concentrations / (concentrations + 2) + np.random.randn(7) * 2
+    response_err = np.array([3, 2.5, 2, 1.5, 1.2, 1.0, 0.8])
+    
+    # Dataset 3: Time course with asymmetric errors
+    time_points = np.array([0, 1, 2, 4, 8, 16, 24, 48])
+    values = 10 * np.exp(-time_points/12) + np.random.randn(8) * 0.5
+    err_low = np.random.uniform(0.3, 0.8, 8)
+    err_high = np.random.uniform(0.5, 1.2, 8)
+    
+    # Dataset 4: Temperature vs property measurement
+    temperatures = np.linspace(273, 373, 12)
+    property_values = 0.02 * temperatures + np.random.randn(12) * 0.3
+    temp_err = np.full(12, 2.0)  # ±2K temperature error
+    prop_err = np.random.uniform(0.1, 0.5, 12)
+    
+    return {
+        'linear_trend': {
+            'x': x1, 'y': y1, 'yerr': yerr1, 'xerr': None
+        },
+        'dose_response': {
+            'x': concentrations, 'y': response, 'yerr': response_err, 'xerr': None
+        },
+        'time_course': {
+            'x': time_points, 'y': values, 
+            'yerr': [err_low, err_high], 'xerr': None
+        },
+        'temperature_study': {
+            'x': temperatures, 'y': property_values, 
+            'yerr': prop_err, 'xerr': temp_err
+        }
+    }
+
+# Generate Ramachandra plot data
+def generate_example_angle_data(n_samples=1000, n_features=21):
+    """Generate example angle data for testing"""
+    # Create some clustered angle data
+    np.random.seed(42)
+
+    # Create multiple clusters
+    cluster_centers = [(-90, -45), (0, 0), (45, 90), (-135, 135)]
+    cluster_std = 20
+
+    x_data = []
+    y_data = []
+
+    for i in range(n_samples):
+        feature_data_x = []
+        feature_data_y = []
+
+        for j in range(n_features):
+            # Randomly choose a cluster
+            center_idx = np.random.randint(len(cluster_centers))
+            cx, cy = cluster_centers[center_idx]
+
+            # Generate points around the cluster center
+            x_val = np.random.normal(cx, cluster_std)
+            y_val = np.random.normal(cy, cluster_std)
+
+            # Wrap to [-180, 180] range
+            x_val = ((x_val + 180) % 360) - 180
+            y_val = ((y_val + 180) % 360) - 180
+
+            feature_data_x.append(x_val)
+            feature_data_y.append(y_val)
+
+        x_data.append(feature_data_x)
+        y_data.append(feature_data_y)
+
+    return np.array(x_data), np.array(y_data)
+
+
+if __name__ == "__main__":
+    # Generate all data
+    line_data = generate_line_plot_data()
+    hist_data = generate_histogram_data()
+    errorbar_data = generate_errorbar_data()
+    x_angles, y_angles = generate_example_angle_data(1000, 21)
+
+    fig = plt.figure(figsize=(8, 6))
+    gs = GridSpec(2, 2, width_ratios=[1, 1], 
+                figure=fig, 
+                height_ratios=[1, 1])	
+    ax0 = fig.add_subplot(gs[0, 0])
+    ax1 = fig.add_subplot(gs[0, 1])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[1, 1])
+    # ax0 for line
+    line_plot(line_data['sine_wave'][0], line_data['sine_wave'][1], ax=ax0)
+    # ax1 for hist
+    hist_plot(hist_data['normal'], ax=ax1, bins=50, fit=True)
+    # ax2 for errorbar
+    errorbar_plot(errorbar_data['linear_trend']['x'], errorbar_data['linear_trend']['y'], yerror=errorbar_data['linear_trend']['yerr'], ax=ax2)
+    # ax3 for 2d histogram
+    hist2d_contour_plot(x_angles, y_angles, bins=100, fig=fig, ax=ax3)
+
+    plt.tight_layout()
+    plt.show()
