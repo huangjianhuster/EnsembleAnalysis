@@ -1,4 +1,4 @@
-# EnsembleCompare
+# EnsembleAnalysis
 A package for analyzing conformational ensemble of protein systems.
 
 Features:
