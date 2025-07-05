@@ -7,8 +7,12 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
 from matplotlib.gridspec import GridSpec
+import matplotlib.colors as mcolors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import norm
+from scipy.stats import gaussian_kde
+from scipy.ndimage import gaussian_filter
+
 
 # Plot histogram
 def hist_plot(arr, ax=None, bins=20, fit=True, **kwargs):
@@ -294,6 +298,250 @@ def hist2d_contour_plot(x, y, bins=50, log_scale=True, contours=True,
     return fig, ax, hist, xedges, yedges, cbar_ax
 
 
+def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_levels=None, contour_annotations=True,
+                           bins=50, hist_bins=30, method='kde', kde_bandwidth=None, sigma=1.0, cmap='RdYlBu_r', colorbar=False):
+    """
+    Plot 2D density-contour map with side histograms.
+    
+    Parameters:
+    -----------
+    x, y : array-like
+        2D data points coordinates
+    ax : matplotlib.axes.Axes, optional
+        Main plot axes. If None, will create new figure and axes.
+    fig : matplotlib.figure.Figure, optional
+        Figure object. If None, will create new figure.
+    contour : bool, default True
+        Whether to plot contour lines
+    n_levels: int, default 5
+        number of contour levels
+    contour_levels : array-like, optional
+        Custom contour levels. If None, automatically determined in log scale.
+    bins : int, default 50
+        Number of bins for density estimation grid
+    hist_bins : int, default 30
+        Number of bins for side histograms
+    method : str, default 'kde'
+        Method for density estimation: 'kde' or 'histogram'
+        - 'kde': Kernel Density Estimation (smooth, slower)
+        - 'histogram': 2D histogram (faster, shows actual bin counts)
+    kde_bandwidth : float, optional
+        Bandwidth for KDE. If None, uses scipy default. Only used when method='kde'.
+    sigma : float, default 1.0
+        Gaussian filter sigma for smoothing density map
+    colorbar : bool, default False
+        Whether to add a colorbar to the plot
+    
+    Returns:
+    --------
+    fig : matplotlib.figure.Figure
+        Figure object
+    ax_main : matplotlib.axes.Axes
+        Main density plot axes
+    ax_histx : matplotlib.axes.Axes
+        Top histogram axes (x-dimension)
+    ax_histy : matplotlib.axes.Axes
+        Right histogram axes (y-dimension)
+    cbar_ax : matplotlib.axes.Axes or None
+        Colorbar axes (None if colorbar=False)
+    """
+    
+    # Convert to numpy arrays
+    x = np.asarray(x)
+    y = np.asarray(y)
+    
+    # Create figure and axes if not provided
+    if fig is None:
+        fig = plt.figure(figsize=(8, 8))
+    
+    if ax is None:
+        # Create 2x2 gridspec for main plot and side histograms
+        gs = GridSpec(2, 2, figure=fig, height_ratios=[1, 4], width_ratios=[4, 1],
+                      hspace=0.05, wspace=0.05)
+        
+        ax_main = fig.add_subplot(gs[1, 0])
+        ax_histx = fig.add_subplot(gs[0, 0], sharex=ax_main)
+        ax_histy = fig.add_subplot(gs[1, 1], sharey=ax_main)
+    else:
+        # If axes provided, assume it's the main axes and create gridspec around it
+        pos = ax.get_position()
+        fig.delaxes(ax)
+        
+        # Create custom gridspec based on original axes position
+        gs = GridSpec(2, 2, figure=fig, 
+                      left=pos.x0, right=pos.x1, bottom=pos.y0, top=pos.y1,
+                      height_ratios=[1, 4], width_ratios=[4, 1],
+                      hspace=0.05, wspace=0.05)
+        
+        ax_main = fig.add_subplot(gs[1, 0])
+        ax_histx = fig.add_subplot(gs[0, 0], sharex=ax_main)
+        ax_histy = fig.add_subplot(gs[1, 1], sharey=ax_main)
+    
+    # Create density estimation
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+    
+    # Add some padding
+    x_range = x_max - x_min
+    y_range = y_max - y_min
+    x_pad = x_range * 0.1
+    y_pad = y_range * 0.1
+    
+    if method.lower() == 'kde':
+        # KDE method: smooth, continuous density estimation
+        x_grid = np.linspace(x_min - x_pad, x_max + x_pad, bins)
+        y_grid = np.linspace(y_min - y_pad, y_max + y_pad, bins)
+        X, Y = np.meshgrid(x_grid, y_grid)
+        
+        # Perform KDE
+        if kde_bandwidth is None:
+            kde = gaussian_kde(np.vstack([x, y]))
+        else:
+            kde = gaussian_kde(np.vstack([x, y]), bw_method=kde_bandwidth)
+        
+        # Evaluate KDE on grid
+        positions = np.vstack([X.ravel(), Y.ravel()])
+        Z = kde(positions).reshape(X.shape)
+        
+        # Apply Gaussian smoothing
+        Z = gaussian_filter(Z, sigma=sigma)
+        
+        extent = [x_min - x_pad, x_max + x_pad, y_min - y_pad, y_max + y_pad]
+        
+    elif method.lower() == 'histogram':
+        # 2D Histogram method: faster, shows actual data distribution
+        Z, x_edges, y_edges = np.histogram2d(x, y, bins=bins, 
+                                             range=[[x_min - x_pad, x_max + x_pad], 
+                                                    [y_min - y_pad, y_max + y_pad]],
+                                             density=True)
+        Z = Z.T  # Transpose to match imshow orientation
+        
+        # Apply Gaussian smoothing
+        Z = gaussian_filter(Z, sigma=sigma)
+        
+        # Create coordinate arrays for contour plotting
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+        X, Y = np.meshgrid(x_centers, y_centers)
+        
+        extent = [x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]]
+    
+    else:
+        raise ValueError("Method must be 'kde' or 'histogram'")
+    
+    # Create custom colormap with white for zero values
+    cmap = mpl.colormaps[cmap]
+    # colors = plt.cm.RdYlBu_r(np.linspace(0, 1, 256))
+    colors = cmap(np.linspace(0, 1, 256))
+    colors[0] = [1, 1, 1, 1]  # Set lowest value to white
+    custom_cmap = mcolors.ListedColormap(colors)
+    
+    # Plot density map
+    im = ax_main.imshow(Z, extent=extent, origin='lower', aspect='auto', cmap=custom_cmap)
+
+    # Create colorbar if requested
+    cbar_ax = None
+    if colorbar:
+        # Create colorbar without using divider to preserve sharex functionality
+        # Manually create colorbar axes
+        main_pos = ax_main.get_position()
+        
+        # Create colorbar axes manually
+        cbar_width = 0.01
+        cbar_pad = 0.05
+        cbar_ax = fig.add_axes([main_pos.x1 + cbar_pad, main_pos.y0, 
+                               cbar_width, main_pos.height])
+        
+        cbar = fig.colorbar(im, cax=cbar_ax)
+        cbar.set_label('', rotation=270, labelpad=15)
+        
+        # Adjust the right histogram position to account for colorbar
+        cbar_pos = cbar_ax.get_position()
+        hist_pos = ax_histy.get_position()
+        new_left = cbar_pos.x1 + 0.07  # Add space between colorbar and histogram
+        ax_histy.set_position([new_left, hist_pos.y0, hist_pos.width, hist_pos.height])
+
+
+    # Handle aspect ratio adjustments - need to adjust histogram positions after aspect is set
+    def adjust_histogram_positions():
+        """Adjust histogram positions to match main plot after aspect changes"""
+        # Force a draw to ensure aspect ratio is applied
+        fig.canvas.draw_idle()
+        
+        # Get the actual position after aspect adjustment
+        main_pos = ax_main.get_position()
+        
+        # Adjust top histogram to match main plot width
+        histx_pos = ax_histx.get_position()
+        ax_histx.set_position([main_pos.x0, histx_pos.y0, main_pos.width, histx_pos.height])
+        
+        # Adjust right histogram to match main plot height (if no colorbar)
+        if not colorbar:
+            hist_pos = ax_histy.get_position()
+            ax_histy.set_position([hist_pos.x0, main_pos.y0, hist_pos.width, main_pos.height])
+    
+    # Store the adjustment function for later use if aspect is changed
+    ax_main._adjust_histograms = adjust_histogram_positions
+    
+    # Plot contours if requested
+    if contour:
+        if contour_levels is None:
+            # # Automatically determine contour levels in log scale
+            # z_max = Z.max()
+            # z_min = Z[Z > 0].min() if np.any(Z > 0) else z_max * 1e-6
+            # # Create log-spaced contour levels
+            # contour_levels = np.logspace(np.log10(z_min), np.log10(z_max), n_levels)[1:-1]
+
+            # Use percentiles of the density distribution
+            contour_levels = np.percentile(Z[Z > 0], [10, 25, 50, 75, 90, 95])
+            
+        print(f'contour levels: {contour_levels}')
+        
+        # Plot contour lines
+        CS = ax_main.contour(X, Y, Z, levels=contour_levels, colors='k', 
+                            linewidths=1, alpha=0.8)
+        
+        # Add contour labels
+        if contour_annotations:
+            ax_main.clabel(CS, inline=True, fontsize=8, fmt='%.1e')
+
+    # Plot side histograms
+    # X-dimension histogram (top)
+    n_x, bins_x, patches_x = ax_histx.hist(x, bins=hist_bins, density=True, 
+                                           alpha=0.5, color='grey', edgecolor='white')
+    
+    # Add envelope line for x histogram
+    bin_centers_x = (bins_x[:-1] + bins_x[1:]) / 2
+    ax_histx.plot(bin_centers_x, n_x, color='grey', linewidth=2, alpha=0.5)
+    
+    # Y-dimension histogram (right)
+    n_y, bins_y, patches_y = ax_histy.hist(y, bins=hist_bins, density=True, 
+                                           alpha=0.5, color='grey', 
+                                           edgecolor='white', orientation='horizontal')
+    
+    # Add envelope line for y histogram
+    bin_centers_y = (bins_y[:-1] + bins_y[1:]) / 2
+    ax_histy.plot(n_y, bin_centers_y, color='grey', linewidth=2, alpha=0.5)
+    
+    # Clean up histogram axes
+    # Remove unnecessary spines and ticks
+    ax_histx.spines['top'].set_visible(False)
+    ax_histx.spines['right'].set_visible(False)
+    ax_histx.spines['left'].set_visible(False)
+    ax_histx.tick_params(labelbottom=False, labelleft=False, left=False, top=False)
+    
+    ax_histy.spines['top'].set_visible(False)
+    ax_histy.spines['right'].set_visible(False)
+    ax_histy.spines['bottom'].set_visible(False)
+    ax_histy.tick_params(labelbottom=False, labelleft=False, bottom=False, right=False)
+    
+    # Set histogram y-axis limits to match data range
+    ax_histx.set_ylim(bottom=0)
+    ax_histy.set_xlim(left=0)
+    
+    return fig, ax_main, ax_histx, ax_histy, cbar_ax
+
+
 # Some helper functon to generate synthetic data
 np.random.seed(42)
 def generate_line_plot_data():
@@ -440,6 +688,8 @@ def generate_example_angle_data(n_samples=1000, n_features=21):
     return np.array(x_data), np.array(y_data)
 
 
+
+
 if __name__ == "__main__":
     # Generate all data
     line_data = generate_line_plot_data()
@@ -464,5 +714,49 @@ if __name__ == "__main__":
     # ax3 for 2d histogram
     hist2d_contour_plot(x_angles, y_angles, bins=100, fig=fig, ax=ax3)
 
+    plt.tight_layout()
+    plt.show()
+
+
+    # 2d density plot + colorbar + histogram in X and Y directions
+    fig3, ax_main3, ax_histx3, ax_histy3,_ = hist2d_distXY_contour_plot(
+    x_angles.flatten(), y_angles.flatten(), method='histogram', contour=True,
+    bins=200, hist_bins=200, colorbar=True, contour_annotations=False,
+    )
+    # ax_main3.set_aspect('equal')
+    ax_main3.set_xlabel('X Coordinate')
+    ax_main3.set_ylabel('Y Coordinate')
+    # ax_main3.grid()
+    fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
+
+    # Set equal aspect
+    ax_main3.set_aspect('equal')
+    ax_main3._adjust_histograms()
+    plt.tight_layout()
+    plt.show()
+
+    # more test
+    fig = plt.figure(figsize=(9, 9))
+    gs = GridSpec(2, 2, width_ratios=[0.5, 8], 
+                figure=fig, 
+                height_ratios=[0.5, 8])
+    ax0 = fig.add_subplot(gs[0,0])
+    ax1 = fig.add_subplot(gs[0,1])
+    ax2 = fig.add_subplot(gs[1,0])
+    ax3 = fig.add_subplot(gs[1,1])
+
+    fig, ax_main3, ax_histx3, ax_histy3,_ = hist2d_distXY_contour_plot(
+    x_angles.flatten(), y_angles.flatten(), ax=ax3, fig=fig, method='histogram', contour=True,
+    bins=200, hist_bins=200, colorbar=False, contour_annotations=True,
+    )
+    # ax_main3.set_aspect('equal')
+    ax_main3.set_xlabel('X Coordinate')
+    ax_main3.set_ylabel('Y Coordinate')
+    # ax_main3.grid()
+    fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
+
+    # Set equal aspect
+    ax_main3.set_aspect('equal')
+    ax_main3._adjust_histograms()
     plt.tight_layout()
     plt.show()
