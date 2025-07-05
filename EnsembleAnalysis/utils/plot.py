@@ -298,11 +298,10 @@ def hist2d_contour_plot(x, y, bins=50, log_scale=True, contours=True,
     return fig, ax, hist, xedges, yedges, cbar_ax
 
 
-def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_levels=None, contour_annotations=True,
-                           bins=50, hist_bins=30, method='kde', kde_bandwidth=None, sigma=1.0, cmap='RdYlBu_r', colorbar=False):
+def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_levels=None, contour_annotations=True, bins=50, hist_bins=30, method='kde', kde_bandwidth=None, sigma=1.0, cmap='RdYlBu_r', colorbar=False):
     """
     Plot 2D density-contour map with side histograms.
-    
+
     Parameters:
     -----------
     x, y : array-like
@@ -331,7 +330,7 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         Gaussian filter sigma for smoothing density map
     colorbar : bool, default False
         Whether to add a colorbar to the plot
-    
+
     Returns:
     --------
     fig : matplotlib.figure.Figure
@@ -345,20 +344,26 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
     cbar_ax : matplotlib.axes.Axes or None
         Colorbar axes (None if colorbar=False)
     """
-    
+
     # Convert to numpy arrays
     x = np.asarray(x)
     y = np.asarray(y)
-    
+
     # Create figure and axes if not provided
     if fig is None:
         fig = plt.figure(figsize=(8, 8))
-    
+
     if ax is None:
         # Create 2x2 gridspec for main plot and side histograms
-        gs = GridSpec(2, 2, figure=fig, height_ratios=[1, 4], width_ratios=[4, 1],
-                      hspace=0.05, wspace=0.05)
-        
+        gs = GridSpec(2, 2, figure=fig, height_ratios=[1, 8],
+                      width_ratios=[8, 1],
+                      hspace=0.05,
+                      wspace=0.05,)
+                      # top=0.95,
+                      # bottom=0.05,
+                      # right=0.90,
+                      # left=0.15)
+
         ax_main = fig.add_subplot(gs[1, 0])
         ax_histx = fig.add_subplot(gs[0, 0], sharex=ax_main)
         ax_histy = fig.add_subplot(gs[1, 1], sharey=ax_main)
@@ -366,76 +371,76 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         # If axes provided, assume it's the main axes and create gridspec around it
         pos = ax.get_position()
         fig.delaxes(ax)
-        
+
         # Create custom gridspec based on original axes position
-        gs = GridSpec(2, 2, figure=fig, 
+        gs = GridSpec(2, 2, figure=fig,
                       left=pos.x0, right=pos.x1, bottom=pos.y0, top=pos.y1,
                       height_ratios=[1, 4], width_ratios=[4, 1],
                       hspace=0.05, wspace=0.05)
-        
+
         ax_main = fig.add_subplot(gs[1, 0])
         ax_histx = fig.add_subplot(gs[0, 0], sharex=ax_main)
         ax_histy = fig.add_subplot(gs[1, 1], sharey=ax_main)
-    
+
     # Create density estimation
     x_min, x_max = x.min(), x.max()
     y_min, y_max = y.min(), y.max()
-    
+
     # Add some padding
     x_range = x_max - x_min
     y_range = y_max - y_min
     x_pad = x_range * 0.1
     y_pad = y_range * 0.1
-    
+
     if method.lower() == 'kde':
         # KDE method: smooth, continuous density estimation
         x_grid = np.linspace(x_min - x_pad, x_max + x_pad, bins)
         y_grid = np.linspace(y_min - y_pad, y_max + y_pad, bins)
         X, Y = np.meshgrid(x_grid, y_grid)
-        
+
         # Perform KDE
         if kde_bandwidth is None:
             kde = gaussian_kde(np.vstack([x, y]))
         else:
             kde = gaussian_kde(np.vstack([x, y]), bw_method=kde_bandwidth)
-        
+
         # Evaluate KDE on grid
         positions = np.vstack([X.ravel(), Y.ravel()])
         Z = kde(positions).reshape(X.shape)
-        
+
         # Apply Gaussian smoothing
         Z = gaussian_filter(Z, sigma=sigma)
-        
+
         extent = [x_min - x_pad, x_max + x_pad, y_min - y_pad, y_max + y_pad]
-        
+
     elif method.lower() == 'histogram':
         # 2D Histogram method: faster, shows actual data distribution
-        Z, x_edges, y_edges = np.histogram2d(x, y, bins=bins, 
-                                             range=[[x_min - x_pad, x_max + x_pad], 
+        Z, x_edges, y_edges = np.histogram2d(x, y, bins=bins,
+                                             range=[[x_min - x_pad, x_max + x_pad],
                                                     [y_min - y_pad, y_max + y_pad]],
                                              density=True)
         Z = Z.T  # Transpose to match imshow orientation
-        
+
         # Apply Gaussian smoothing
         Z = gaussian_filter(Z, sigma=sigma)
-        
+
         # Create coordinate arrays for contour plotting
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2
         y_centers = (y_edges[:-1] + y_edges[1:]) / 2
         X, Y = np.meshgrid(x_centers, y_centers)
-        
+
         extent = [x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]]
-    
+
     else:
         raise ValueError("Method must be 'kde' or 'histogram'")
-    
+
     # Create custom colormap with white for zero values
     cmap = mpl.colormaps[cmap]
     # colors = plt.cm.RdYlBu_r(np.linspace(0, 1, 256))
     colors = cmap(np.linspace(0, 1, 256))
     colors[0] = [1, 1, 1, 1]  # Set lowest value to white
     custom_cmap = mcolors.ListedColormap(colors)
-    
+
     # Plot density map
     im = ax_main.imshow(Z, extent=extent, origin='lower', aspect='auto', cmap=custom_cmap)
 
@@ -445,20 +450,20 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         # Create colorbar without using divider to preserve sharex functionality
         # Manually create colorbar axes
         main_pos = ax_main.get_position()
-        
+
         # Create colorbar axes manually
         cbar_width = 0.01
-        cbar_pad = 0.05
-        cbar_ax = fig.add_axes([main_pos.x1 + cbar_pad, main_pos.y0, 
+        cbar_pad = 0.01
+        cbar_ax = fig.add_axes([main_pos.x1 + cbar_pad, main_pos.y0,
                                cbar_width, main_pos.height])
-        
+
         cbar = fig.colorbar(im, cax=cbar_ax)
         cbar.set_label('', rotation=270, labelpad=15)
-        
+
         # Adjust the right histogram position to account for colorbar
         cbar_pos = cbar_ax.get_position()
         hist_pos = ax_histy.get_position()
-        new_left = cbar_pos.x1 + 0.07  # Add space between colorbar and histogram
+        new_left = cbar_pos.x1 + 0.08  # Add space between colorbar and histogram
         ax_histy.set_position([new_left, hist_pos.y0, hist_pos.width, hist_pos.height])
 
 
@@ -467,22 +472,22 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         """Adjust histogram positions to match main plot after aspect changes"""
         # Force a draw to ensure aspect ratio is applied
         fig.canvas.draw_idle()
-        
+
         # Get the actual position after aspect adjustment
         main_pos = ax_main.get_position()
-        
+
         # Adjust top histogram to match main plot width
         histx_pos = ax_histx.get_position()
         ax_histx.set_position([main_pos.x0, histx_pos.y0, main_pos.width, histx_pos.height])
-        
+
         # Adjust right histogram to match main plot height (if no colorbar)
         if not colorbar:
             hist_pos = ax_histy.get_position()
             ax_histy.set_position([hist_pos.x0, main_pos.y0, hist_pos.width, main_pos.height])
-    
+
     # Store the adjustment function for later use if aspect is changed
     ax_main._adjust_histograms = adjust_histogram_positions
-    
+
     # Plot contours if requested
     if contour:
         if contour_levels is None:
@@ -494,51 +499,51 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
 
             # Use percentiles of the density distribution
             contour_levels = np.percentile(Z[Z > 0], [10, 25, 50, 75, 90, 95])
-            
+
         print(f'contour levels: {contour_levels}')
-        
+
         # Plot contour lines
-        CS = ax_main.contour(X, Y, Z, levels=contour_levels, colors='k', 
+        CS = ax_main.contour(X, Y, Z, levels=contour_levels, colors='k',
                             linewidths=1, alpha=0.8)
-        
+
         # Add contour labels
         if contour_annotations:
             ax_main.clabel(CS, inline=True, fontsize=8, fmt='%.1e')
 
     # Plot side histograms
     # X-dimension histogram (top)
-    n_x, bins_x, patches_x = ax_histx.hist(x, bins=hist_bins, density=True, 
+    n_x, bins_x, patches_x = ax_histx.hist(x, bins=hist_bins, density=True,
                                            alpha=0.5, color='grey', edgecolor='white')
-    
+
     # Add envelope line for x histogram
     bin_centers_x = (bins_x[:-1] + bins_x[1:]) / 2
     ax_histx.plot(bin_centers_x, n_x, color='grey', linewidth=2, alpha=0.5)
-    
+
     # Y-dimension histogram (right)
-    n_y, bins_y, patches_y = ax_histy.hist(y, bins=hist_bins, density=True, 
-                                           alpha=0.5, color='grey', 
+    n_y, bins_y, patches_y = ax_histy.hist(y, bins=hist_bins, density=True,
+                                           alpha=0.5, color='grey',
                                            edgecolor='white', orientation='horizontal')
-    
+
     # Add envelope line for y histogram
     bin_centers_y = (bins_y[:-1] + bins_y[1:]) / 2
     ax_histy.plot(n_y, bin_centers_y, color='grey', linewidth=2, alpha=0.5)
-    
+
     # Clean up histogram axes
     # Remove unnecessary spines and ticks
     ax_histx.spines['top'].set_visible(False)
     ax_histx.spines['right'].set_visible(False)
     ax_histx.spines['left'].set_visible(False)
     ax_histx.tick_params(labelbottom=False, labelleft=False, left=False, top=False)
-    
+
     ax_histy.spines['top'].set_visible(False)
     ax_histy.spines['right'].set_visible(False)
     ax_histy.spines['bottom'].set_visible(False)
     ax_histy.tick_params(labelbottom=False, labelleft=False, bottom=False, right=False)
-    
+
     # Set histogram y-axis limits to match data range
     ax_histx.set_ylim(bottom=0)
     ax_histy.set_xlim(left=0)
-    
+
     return fig, ax_main, ax_histx, ax_histy, cbar_ax
 
 
@@ -546,23 +551,23 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
 np.random.seed(42)
 def generate_line_plot_data():
     """Generate synthetic data for line plots"""
-    
+
     # Dataset 1: Simple sine wave with noise
     x1 = np.linspace(0, 4*np.pi, 100)
     y1 = np.sin(x1) + 0.1 * np.random.randn(100)
-    
+
     # Dataset 2: Exponential decay
     x2 = np.linspace(0, 5, 80)
     y2 = 2 * np.exp(-x2/2) + 0.05 * np.random.randn(80)
-    
+
     # Dataset 3: Polynomial trend
     x3 = np.linspace(-2, 2, 60)
     y3 = x3**3 - 2*x3**2 + x3 + 0.2 * np.random.randn(60)
-    
+
     # Dataset 4: Time series-like data
     x4 = np.arange(0, 100)
     y4 = np.cumsum(np.random.randn(100)) + 0.02 * x4
-    
+
     return {
         'sine_wave': (x1, y1),
         'exponential_decay': (x2, y2),
@@ -572,32 +577,32 @@ def generate_line_plot_data():
 
 def generate_histogram_data():
     """Generate synthetic data for 1D histograms"""
-    
+
     # Dataset 1: Normal distribution
     normal_data = np.random.normal(50, 15, 1000)
-    
+
     # Dataset 2: Bimodal distribution
     bimodal_data = np.concatenate([
         np.random.normal(30, 8, 500),
         np.random.normal(70, 12, 500)
     ])
-    
+
     # Dataset 3: Skewed distribution (gamma)
     skewed_data = np.random.gamma(2, 2, 1000)
-    
+
     # Dataset 4: Uniform distribution
     uniform_data = np.random.uniform(0, 100, 800)
-    
+
     # Dataset 5: Exponential distribution
     exponential_data = np.random.exponential(2, 1000)
-    
+
     # Dataset 6: Mixed distribution (realistic molecular dynamics data)
     md_like_data = np.concatenate([
         np.random.normal(10, 2, 300),    # Main population
         np.random.normal(15, 1, 150),    # Secondary population
         np.random.exponential(1, 50) + 20  # Rare events
     ])
-    
+
     return {
         'normal': normal_data,
         'bimodal': bimodal_data,
@@ -609,29 +614,29 @@ def generate_histogram_data():
 
 def generate_errorbar_data():
     """Generate synthetic data for errorbar plots"""
-    
+
     # Dataset 1: Experimental measurements with varying error
     x1 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     y1 = 2 * x1 + 3 + np.random.randn(10) * 0.5
     yerr1 = np.random.uniform(0.2, 1.0, 10)
-    
+
     # Dataset 2: Concentration vs response with error bars
     concentrations = np.array([0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0])
     response = 100 * concentrations / (concentrations + 2) + np.random.randn(7) * 2
     response_err = np.array([3, 2.5, 2, 1.5, 1.2, 1.0, 0.8])
-    
+
     # Dataset 3: Time course with asymmetric errors
     time_points = np.array([0, 1, 2, 4, 8, 16, 24, 48])
     values = 10 * np.exp(-time_points/12) + np.random.randn(8) * 0.5
     err_low = np.random.uniform(0.3, 0.8, 8)
     err_high = np.random.uniform(0.5, 1.2, 8)
-    
+
     # Dataset 4: Temperature vs property measurement
     temperatures = np.linspace(273, 373, 12)
     property_values = 0.02 * temperatures + np.random.randn(12) * 0.3
     temp_err = np.full(12, 2.0)  # ±2K temperature error
     prop_err = np.random.uniform(0.1, 0.5, 12)
-    
+
     return {
         'linear_trend': {
             'x': x1, 'y': y1, 'yerr': yerr1, 'xerr': None
@@ -640,11 +645,11 @@ def generate_errorbar_data():
             'x': concentrations, 'y': response, 'yerr': response_err, 'xerr': None
         },
         'time_course': {
-            'x': time_points, 'y': values, 
+            'x': time_points, 'y': values,
             'yerr': [err_low, err_high], 'xerr': None
         },
         'temperature_study': {
-            'x': temperatures, 'y': property_values, 
+            'x': temperatures, 'y': property_values,
             'yerr': prop_err, 'xerr': temp_err
         }
     }
@@ -691,16 +696,16 @@ def generate_example_angle_data(n_samples=1000, n_features=21):
 
 
 if __name__ == "__main__":
+    """
     # Generate all data
     line_data = generate_line_plot_data()
     hist_data = generate_histogram_data()
     errorbar_data = generate_errorbar_data()
-    x_angles, y_angles = generate_example_angle_data(1000, 21)
 
     fig = plt.figure(figsize=(8, 6))
-    gs = GridSpec(2, 2, width_ratios=[1, 1], 
-                figure=fig, 
-                height_ratios=[1, 1])	
+    gs = GridSpec(2, 2, width_ratios=[1, 1],
+                figure=fig,
+                height_ratios=[1, 1])
     ax0 = fig.add_subplot(gs[0, 0])
     ax1 = fig.add_subplot(gs[0, 1])
     ax2 = fig.add_subplot(gs[1, 0])
@@ -716,11 +721,51 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+    """
 
 
+    ### test 2D density contour plot
+    x_angles, y_angles = generate_example_angle_data(1000, 21)
     # 2d density plot + colorbar + histogram in X and Y directions
-    fig3, ax_main3, ax_histx3, ax_histy3,_ = hist2d_distXY_contour_plot(
+    fig3, ax_main3, ax_histx3, ax_histy3, cbar = hist2d_distXY_contour_plot(
     x_angles.flatten(), y_angles.flatten(), method='histogram', contour=True,
+    bins=200, hist_bins=200, colorbar=True, contour_annotations=False,
+    )
+    ax_main3.set_xlabel('X Coordinate')
+    ax_main3.set_ylabel('Y Coordinate')
+    fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
+
+    # Set equal aspect
+    ax_main3.set_aspect('equal')
+    ax_main3._adjust_histograms()
+    # finer control
+    from matplotlib import ticker
+    def custom_formatter(x, pos):
+        if x == 0:
+            return "0"
+        else:
+            return f"{x:.0e}" # Example: one decimal place in scientific notation
+    cbar.formatter = ticker.FuncFormatter(custom_formatter)
+    cbar.yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
+    # plt.tight_layout()
+    plt.show()
+
+
+    ### more test
+    fig = plt.figure(figsize=(8, 8))
+    gs = GridSpec(2, 2, width_ratios=[2, 8],
+                figure=fig,
+                height_ratios=[2, 8])
+    ax0 = fig.add_subplot(gs[0,0])
+    ax1 = fig.add_subplot(gs[0,1])
+    ax2 = fig.add_subplot(gs[1,0])
+    ax3 = fig.add_subplot(gs[1,1])
+    for ax in [ax0, ax1, ax2]:
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    fig, ax_main3, ax_histx3, ax_histy3, cbar = hist2d_distXY_contour_plot(
+    x_angles.flatten(), y_angles.flatten(), ax=ax3, fig=fig, method='histogram', contour=True,
     bins=200, hist_bins=200, colorbar=True, contour_annotations=False,
     )
     # ax_main3.set_aspect('equal')
@@ -728,35 +773,15 @@ if __name__ == "__main__":
     ax_main3.set_ylabel('Y Coordinate')
     # ax_main3.grid()
     fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
+    ax_main3.set_aspect('equal')
+    ax_main3._adjust_histograms()
+
+    if cbar is not None:
+        cbar.formatter = ticker.FuncFormatter(custom_formatter)
+        cbar.yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
 
     # Set equal aspect
     ax_main3.set_aspect('equal')
     ax_main3._adjust_histograms()
-    plt.tight_layout()
-    plt.show()
-
-    # more test
-    fig = plt.figure(figsize=(9, 9))
-    gs = GridSpec(2, 2, width_ratios=[0.5, 8], 
-                figure=fig, 
-                height_ratios=[0.5, 8])
-    ax0 = fig.add_subplot(gs[0,0])
-    ax1 = fig.add_subplot(gs[0,1])
-    ax2 = fig.add_subplot(gs[1,0])
-    ax3 = fig.add_subplot(gs[1,1])
-
-    fig, ax_main3, ax_histx3, ax_histy3,_ = hist2d_distXY_contour_plot(
-    x_angles.flatten(), y_angles.flatten(), ax=ax3, fig=fig, method='histogram', contour=True,
-    bins=200, hist_bins=200, colorbar=False, contour_annotations=True,
-    )
-    # ax_main3.set_aspect('equal')
-    ax_main3.set_xlabel('X Coordinate')
-    ax_main3.set_ylabel('Y Coordinate')
-    # ax_main3.grid()
-    fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
-
-    # Set equal aspect
-    ax_main3.set_aspect('equal')
-    ax_main3._adjust_histograms()
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.show()
