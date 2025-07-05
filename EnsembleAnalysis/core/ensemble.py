@@ -260,7 +260,7 @@ class Ensemble:
         end2end = np.asarray(result)
         return end2end
 
-    def pca(self, selection="protein and backbone", align=Ture, n_components=None):
+    def pca(self, selection="protein and backbone", align=True, n_components=None):
         """
         selection: selection syntax str in MDAnalysis
         n_compnents: int; project coordinates in a reduced dimension
