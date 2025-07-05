@@ -12,6 +12,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import norm
 from scipy.stats import gaussian_kde
 from scipy.ndimage import gaussian_filter
+from matplotlib import ticker
+from matplotlib.ticker import FuncFormatter
+import warnings
 
 
 # Plot histogram
@@ -104,6 +107,51 @@ def errorbar_plot(arr1, arr2, yerror=None, xerror=None, ax=None, **kwargs):
                     **kwargs)
 
     return ax
+
+
+def format_ticks(ax, which='x', fmt='.2f'):
+    """
+    Format tick labels on specified axis using string formatting.
+    
+    Parameters:
+    -----------
+    ax : matplotlib.axes.Axes
+        The axes object to modify
+    which : str, default 'x'
+        Which axis to format ('x', 'y', or 'z')
+    fmt : str, default '.2f'
+        Format string for float numbers (e.g., '.2f', '.1e', '.3g')
+    
+    Returns:
+    --------
+    None
+        Modifies the axes object in place
+    
+    Examples:
+    ---------
+    >>> fig, ax = plt.subplots()
+    >>> ax.plot([1.234, 2.567, 3.891], [4.123, 5.678, 6.234])
+    >>> format_ticks(ax, which='x', fmt='.1f')  # Format x-axis to 1 decimal
+    >>> format_ticks(ax, which='y', fmt='.3f')  # Format y-axis to 3 decimals
+    """
+    
+    # Create formatter function
+    def formatter(x, pos):
+        return f"{x:{fmt}}"
+    
+    # Apply formatter to specified axis
+    if which.lower() == 'x':
+        ax.xaxis.set_major_formatter(FuncFormatter(formatter))
+    elif which.lower() == 'y':
+        ax.yaxis.set_major_formatter(FuncFormatter(formatter))
+    elif which.lower() == 'z':
+        # Check if this is a 3D axes
+        if hasattr(ax, 'zaxis'):
+            ax.zaxis.set_major_formatter(FuncFormatter(formatter))
+        else:
+            raise ValueError("Z-axis formatting requires a 3D axes object")
+    else:
+        raise ValueError(f"Invalid axis '{which}'. Must be 'x', 'y', or 'z'")
 
 
 # Plot Ramachandra plot
@@ -693,6 +741,122 @@ def generate_example_angle_data(n_samples=1000, n_features=21):
     return np.array(x_data), np.array(y_data)
 
 
+def auto_axis_limits(ax, which='xy', scale_factor=1.5):
+    """
+    Automatically adjust axis limits based on data range with scaling.
+    
+    Parameters:
+    -----------
+    ax : matplotlib.axes.Axes
+        The axes object to modify
+    which : str, default 'xy'
+        Which axes to adjust ('x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz')
+    scale_factor : float, default 1.5
+        Factor to expand the limits beyond min/max range
+        (1.0 = exact fit, 1.5 = 50% larger, 1.2 = 20% larger, etc.)
+    
+    Returns:
+    --------
+    dict
+        Dictionary with the computed limits for each axis
+    
+    Examples:
+    ---------
+    >>> fig, ax = plt.subplots()
+    >>> ax.scatter(data_x, data_y)
+    >>> limits = auto_axis_limits(ax, which='xy', scale_factor=1.5)
+    >>> print(f"X limits: {limits['x']}, Y limits: {limits['y']}")
+    """
+    
+    def get_axis_data(axis_name):
+        """Extract data from all plot elements for specified axis."""
+        data = []
+        
+        # Get data from lines
+        for line in ax.get_lines():
+            if axis_name == 'x':
+                data.extend(line.get_xdata())
+            elif axis_name == 'y':
+                data.extend(line.get_ydata())
+            elif axis_name == 'z' and hasattr(line, 'get_zdata'):
+                data.extend(line.get_zdata())
+        
+        # Get data from scatter plots and other collections
+        for collection in ax.collections:
+            if hasattr(collection, 'get_offsets'):
+                offsets = collection.get_offsets()
+                if len(offsets) > 0:
+                    if axis_name == 'x':
+                        data.extend(offsets[:, 0])
+                    elif axis_name == 'y':
+                        data.extend(offsets[:, 1])
+            
+            # Handle 3D scatter plots
+            if hasattr(collection, '_offsets3d') and axis_name == 'z':
+                data.extend(collection._offsets3d[2])
+        
+        # Get data from bar plots and patches
+        for patch in ax.patches:
+            if hasattr(patch, 'get_x') and axis_name == 'x':
+                data.extend([patch.get_x(), patch.get_x() + patch.get_width()])
+            elif hasattr(patch, 'get_y') and axis_name == 'y':
+                data.extend([patch.get_y(), patch.get_y() + patch.get_height()])
+        
+        return np.array(data) if data else np.array([])
+    
+    def compute_scaled_limits(data):
+        """Compute scaled limits from data."""
+        if len(data) == 0:
+            return None, None
+        
+        # Remove NaN values
+        data = data[~np.isnan(data)]
+        if len(data) == 0:
+            return None, None
+        
+        data_min, data_max = np.min(data), np.max(data)
+        data_range = data_max - data_min
+        data_center = (data_min + data_max) / 2
+        
+        # Handle case where all data points are identical
+        if data_range == 0:
+            spread = max(abs(data_center) * 0.1, 1)
+            return data_center - spread, data_center + spread
+        
+        # Scale the range
+        scaled_range = data_range * scale_factor
+        half_range = scaled_range / 2
+        
+        return data_center - half_range, data_center + half_range
+    
+    # Determine which axes to process
+    axes_to_process = []
+    which_lower = which.lower()
+    if 'x' in which_lower:
+        axes_to_process.append('x')
+    if 'y' in which_lower:
+        axes_to_process.append('y')
+    if 'z' in which_lower and hasattr(ax, 'zaxis'):
+        axes_to_process.append('z')
+    
+    # Apply limits to each axis
+    limits = {}
+    for axis_name in axes_to_process:
+        data = get_axis_data(axis_name)
+        low, high = compute_scaled_limits(data)
+        
+        if low is not None and high is not None:
+            limits[axis_name] = (low, high)
+            
+            # Set the limits on the axes
+            if axis_name == 'x':
+                ax.set_xlim(low, high)
+            elif axis_name == 'y':
+                ax.set_ylim(low, high)
+            elif axis_name == 'z':
+                ax.set_zlim(low, high)
+    
+    return limits
 
 
 if __name__ == "__main__":
@@ -737,15 +901,7 @@ if __name__ == "__main__":
     # Set equal aspect
     ax_main3.set_aspect('equal')
     ax_main3._adjust_histograms()
-    # finer control
-    from matplotlib import ticker
-    def custom_formatter(x, pos):
-        if x == 0:
-            return "0"
-        else:
-            return f"{x:.0e}" # Example: one decimal place in scientific notation
-    cbar.formatter = ticker.FuncFormatter(custom_formatter)
-    cbar.yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
+    format_ticks(cbar, which='y', fmt='.0e')
     # plt.tight_layout()
     plt.savefig("../../examples/plot_2dhistcontour.png")
     plt.show()
@@ -768,17 +924,12 @@ if __name__ == "__main__":
     x_angles.flatten(), y_angles.flatten(), ax=ax3, fig=fig, method='histogram', contour=True,
     bins=200, hist_bins=200, colorbar=True, contour_annotations=False,
     )
-    # ax_main3.set_aspect('equal')
-    ax_main3.set_xlabel('X Coordinate')
-    ax_main3.set_ylabel('Y Coordinate')
-    # ax_main3.grid()
     fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
     ax_main3.set_aspect('equal')
     ax_main3._adjust_histograms()
 
     if cbar is not None:
-        cbar.formatter = ticker.FuncFormatter(custom_formatter)
-        cbar.yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
+        format_ticks(cbar, which='y', fmt='.0e')
 
     # Set equal aspect
     ax_main3.set_aspect('equal')
