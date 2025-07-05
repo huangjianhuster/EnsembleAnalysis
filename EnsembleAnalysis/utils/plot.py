@@ -112,7 +112,7 @@ def errorbar_plot(arr1, arr2, yerror=None, xerror=None, ax=None, **kwargs):
 def format_ticks(ax, which='x', fmt='.2f'):
     """
     Format tick labels on specified axis using string formatting.
-    
+
     Parameters:
     -----------
     ax : matplotlib.axes.Axes
@@ -121,12 +121,12 @@ def format_ticks(ax, which='x', fmt='.2f'):
         Which axis to format ('x', 'y', or 'z')
     fmt : str, default '.2f'
         Format string for float numbers (e.g., '.2f', '.1e', '.3g')
-    
+
     Returns:
     --------
     None
         Modifies the axes object in place
-    
+
     Examples:
     ---------
     >>> fig, ax = plt.subplots()
@@ -134,11 +134,11 @@ def format_ticks(ax, which='x', fmt='.2f'):
     >>> format_ticks(ax, which='x', fmt='.1f')  # Format x-axis to 1 decimal
     >>> format_ticks(ax, which='y', fmt='.3f')  # Format y-axis to 3 decimals
     """
-    
+
     # Create formatter function
     def formatter(x, pos):
         return f"{x:{fmt}}"
-    
+
     # Apply formatter to specified axis
     if which.lower() == 'x':
         ax.xaxis.set_major_formatter(FuncFormatter(formatter))
@@ -204,12 +204,7 @@ def hist2d_contour_plot(x, y, bins=50, log_scale=True, contours=True,
     y_clean = y_flat[mask]
 
     # Set up bins - ensure they cover the full range
-    if isinstance(bins, int):
-        x_bins = np.linspace(-180, 180, bins + 1)
-        y_bins = np.linspace(-180, 180, bins + 1)
-    else:
-        x_bins = bins
-        y_bins = bins
+    x_bins = y_bins = bins
 
     # Create 2D histogram
     hist, xedges, yedges = np.histogram2d(x_clean, y_clean, bins=[x_bins, y_bins], density=True)
@@ -744,7 +739,7 @@ def generate_example_angle_data(n_samples=1000, n_features=21):
 def auto_axis_limits(ax, which='xy', scale_factor=1.5):
     """
     Automatically adjust axis limits based on data range with scaling.
-    
+
     Parameters:
     -----------
     ax : matplotlib.axes.Axes
@@ -754,12 +749,12 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
     scale_factor : float, default 1.5
         Factor to expand the limits beyond min/max range
         (1.0 = exact fit, 1.5 = 50% larger, 1.2 = 20% larger, etc.)
-    
+
     Returns:
     --------
     dict
         Dictionary with the computed limits for each axis
-    
+
     Examples:
     ---------
     >>> fig, ax = plt.subplots()
@@ -767,11 +762,11 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
     >>> limits = auto_axis_limits(ax, which='xy', scale_factor=1.5)
     >>> print(f"X limits: {limits['x']}, Y limits: {limits['y']}")
     """
-    
+
     def get_axis_data(axis_name):
         """Extract data from all plot elements for specified axis."""
         data = []
-        
+
         # Get data from lines
         for line in ax.get_lines():
             if axis_name == 'x':
@@ -780,7 +775,7 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
                 data.extend(line.get_ydata())
             elif axis_name == 'z' and hasattr(line, 'get_zdata'):
                 data.extend(line.get_zdata())
-        
+
         # Get data from scatter plots and other collections
         for collection in ax.collections:
             if hasattr(collection, 'get_offsets'):
@@ -790,45 +785,45 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
                         data.extend(offsets[:, 0])
                     elif axis_name == 'y':
                         data.extend(offsets[:, 1])
-            
+
             # Handle 3D scatter plots
             if hasattr(collection, '_offsets3d') and axis_name == 'z':
                 data.extend(collection._offsets3d[2])
-        
+
         # Get data from bar plots and patches
         for patch in ax.patches:
             if hasattr(patch, 'get_x') and axis_name == 'x':
                 data.extend([patch.get_x(), patch.get_x() + patch.get_width()])
             elif hasattr(patch, 'get_y') and axis_name == 'y':
                 data.extend([patch.get_y(), patch.get_y() + patch.get_height()])
-        
+
         return np.array(data) if data else np.array([])
-    
+
     def compute_scaled_limits(data):
         """Compute scaled limits from data."""
         if len(data) == 0:
             return None, None
-        
+
         # Remove NaN values
         data = data[~np.isnan(data)]
         if len(data) == 0:
             return None, None
-        
+
         data_min, data_max = np.min(data), np.max(data)
         data_range = data_max - data_min
         data_center = (data_min + data_max) / 2
-        
+
         # Handle case where all data points are identical
         if data_range == 0:
             spread = max(abs(data_center) * 0.1, 1)
             return data_center - spread, data_center + spread
-        
+
         # Scale the range
         scaled_range = data_range * scale_factor
         half_range = scaled_range / 2
-        
+
         return data_center - half_range, data_center + half_range
-    
+
     # Determine which axes to process
     axes_to_process = []
     which_lower = which.lower()
@@ -838,16 +833,16 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
         axes_to_process.append('y')
     if 'z' in which_lower and hasattr(ax, 'zaxis'):
         axes_to_process.append('z')
-    
+
     # Apply limits to each axis
     limits = {}
     for axis_name in axes_to_process:
         data = get_axis_data(axis_name)
         low, high = compute_scaled_limits(data)
-        
+
         if low is not None and high is not None:
             limits[axis_name] = (low, high)
-            
+
             # Set the limits on the axes
             if axis_name == 'x':
                 ax.set_xlim(low, high)
@@ -855,7 +850,7 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
                 ax.set_ylim(low, high)
             elif axis_name == 'z':
                 ax.set_zlim(low, high)
-    
+
     return limits
 
 

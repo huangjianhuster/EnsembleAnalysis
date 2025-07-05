@@ -260,10 +260,11 @@ class Ensemble:
         end2end = np.asarray(result)
         return end2end
 
-    def pca(self, selection="protein and backbone", n_components=None):
+    def pca(self, selection="protein and backbone", align=Ture, n_components=None):
         """
         selection: selection syntax str in MDAnalysis
         n_compnents: int; project coordinates in a reduced dimension
+        align: True, align to the first frame
         return: PCA results # a dict with "variance", "cumulated_variance" and "p_components"
 
         if n_components is given, it will give the transformed points in the reduced dimensions
@@ -271,7 +272,7 @@ class Ensemble:
         # ref: https://userguide.mdanalysis.org/stable/examples/analysis/reduced_dimensions/pca.html
         (using "selection" as the alignment and also output only the "selection" atoms)
         """
-        pc = pca.PCA(self.universe, select=selection, align=True, \
+        pc = pca.PCA(self.universe, select=selection, align=align, \
                      mean=None, n_components=n_components).run()
         return pc
 
