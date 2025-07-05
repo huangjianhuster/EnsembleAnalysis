@@ -696,11 +696,11 @@ def generate_example_angle_data(n_samples=1000, n_features=21):
 
 
 if __name__ == "__main__":
-    """
     # Generate all data
     line_data = generate_line_plot_data()
     hist_data = generate_histogram_data()
     errorbar_data = generate_errorbar_data()
+    x_angles, y_angles = generate_example_angle_data(1000, 21)
 
     fig = plt.figure(figsize=(8, 6))
     gs = GridSpec(2, 2, width_ratios=[1, 1],
@@ -720,12 +720,11 @@ if __name__ == "__main__":
     hist2d_contour_plot(x_angles, y_angles, bins=100, fig=fig, ax=ax3)
 
     plt.tight_layout()
+    plt.savefig("../../examples/plot_example1.png")
     plt.show()
-    """
 
 
     ### test 2D density contour plot
-    x_angles, y_angles = generate_example_angle_data(1000, 21)
     # 2d density plot + colorbar + histogram in X and Y directions
     fig3, ax_main3, ax_histx3, ax_histy3, cbar = hist2d_distXY_contour_plot(
     x_angles.flatten(), y_angles.flatten(), method='histogram', contour=True,
@@ -748,6 +747,7 @@ if __name__ == "__main__":
     cbar.formatter = ticker.FuncFormatter(custom_formatter)
     cbar.yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
     # plt.tight_layout()
+    plt.savefig("../../examples/plot_2dhistcontour.png")
     plt.show()
 
 
@@ -784,4 +784,5 @@ if __name__ == "__main__":
     ax_main3.set_aspect('equal')
     ax_main3._adjust_histograms()
     # plt.tight_layout()
+    plt.savefig("../../examples/plot_2dhistogram.png")
     plt.show()

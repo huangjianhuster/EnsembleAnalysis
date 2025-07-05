@@ -19,5 +19,10 @@ For developer:
 pip install -e .
 ```
 
-# Examples
+# Ensemble analysis examples
 To be continued!
+
+# Plot samples
+![example1](./examples/plot_example1.png)
+![example2](./examples/plot_2dhistcontour.png)
+![example3](./examples/plot_2dhistogram.png)
