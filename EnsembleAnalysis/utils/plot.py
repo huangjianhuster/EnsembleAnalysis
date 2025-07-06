@@ -341,7 +341,14 @@ def hist2d_contour_plot(x, y, bins=50, log_scale=True, contours=True,
     return fig, ax, hist, xedges, yedges, cbar_ax
 
 
-def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_levels=None, contour_annotations=True, bins=50, hist_bins=30, method='kde', kde_bandwidth=None, sigma=1.0, cmap='RdYlBu_r', colorbar=False):
+def hist2d_distXY_contour_plot(x, y, ax=None, fig=None,
+                               contour=True, contour_levels=None,
+                               contour_annotations=True,
+                               bins=50, hist_bins=30,
+                               method='kde',
+                               cmap='RdYlBu_r',
+                               colorbar=False,
+                               **kwargs):
     """
     Plot 2D density-contour map with side histograms.
 
@@ -367,12 +374,15 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         Method for density estimation: 'kde' or 'histogram'
         - 'kde': Kernel Density Estimation (smooth, slower)
         - 'histogram': 2D histogram (faster, shows actual bin counts)
-    kde_bandwidth : float, optional
-        Bandwidth for KDE. If None, uses scipy default. Only used when method='kde'.
-    sigma : float, default 1.0
-        Gaussian filter sigma for smoothing density map
     colorbar : bool, default False
         Whether to add a colorbar to the plot
+    kwargs:
+        contour: True
+            show contour lines
+        kde_bandwridth: float. default: None
+            (use scipy default). only used when method='kde'
+        sigma : float, default 1.0
+            Gaussian filter sigma for smoothing density map
 
     Returns:
     --------
@@ -442,7 +452,7 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         X, Y = np.meshgrid(x_grid, y_grid)
 
         # Perform KDE
-        if kde_bandwidth is None:
+        if kwargs.get('kde_bandwidth', None):
             kde = gaussian_kde(np.vstack([x, y]))
         else:
             kde = gaussian_kde(np.vstack([x, y]), bw_method=kde_bandwidth)
@@ -452,7 +462,7 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
         Z = kde(positions).reshape(X.shape)
 
         # Apply Gaussian smoothing
-        Z = gaussian_filter(Z, sigma=sigma)
+        Z = gaussian_filter(Z, sigma=kwargs.get('sigma', 1.0))
 
         extent = [x_min - x_pad, x_max + x_pad, y_min - y_pad, y_max + y_pad]
 
@@ -463,9 +473,6 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
                                                     [y_min - y_pad, y_max + y_pad]],
                                              density=True)
         Z = Z.T  # Transpose to match imshow orientation
-
-        # Apply Gaussian smoothing
-        Z = gaussian_filter(Z, sigma=sigma)
 
         # Create coordinate arrays for contour plotting
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2
@@ -489,7 +496,7 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
 
     # Create colorbar if requested
     cbar_ax = None
-    if colorbar:
+    if kwargs.get('colorbar', True):
         # Create colorbar without using divider to preserve sharex functionality
         # Manually create colorbar axes
         main_pos = ax_main.get_position()
@@ -532,7 +539,7 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
     ax_main._adjust_histograms = adjust_histogram_positions
 
     # Plot contours if requested
-    if contour:
+    if kwargs.get('contour', True):
         if contour_levels is None:
             # # Automatically determine contour levels in log scale
             # z_max = Z.max()
@@ -550,7 +557,7 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
                             linewidths=1, alpha=0.8)
 
         # Add contour labels
-        if contour_annotations:
+        if kwargs.get('contour_annotations', False):
             ax_main.clabel(CS, inline=True, fontsize=8, fmt='%.1e')
 
     # Plot side histograms
@@ -588,6 +595,47 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None, contour=True, contour_le
     ax_histy.set_xlim(left=0)
 
     return fig, ax_main, ax_histx, ax_histy, cbar_ax
+
+
+def pairwise_headmap(matrix, ax, ticks_labels=None, **kwargs):
+
+    num_indices = matrix.shape[0]
+    cmap =  kwargs.get('cmap', 'RdYlBu_r')
+
+    # Create the main heatmap using imshow with combined colors
+    im = ax.imshow(matrix, cmap=cmap, aspect='equal')
+
+    # Add grid lines to mimic heatmap appearance
+    ax.set_xlim(-0.5, num_indices - 0.5)
+    ax.set_ylim(num_indices - 0.5, -0.5)
+
+    # Add subtle grid lines
+    for i in range(num_indices + 1):
+        ax.axhline(i - 0.5, color='white', linewidth=0.1)
+        ax.axvline(i - 0.5, color='white', linewidth=0.1)
+
+    # Determine tick positions - show every nth residue to avoid crowding
+    if num_indices <= 20:
+        tick_step = 1
+    elif num_indices <= 50:
+        tick_step = 5
+    elif num_indices <= 100:
+        tick_step = 10
+    else:
+        tick_step = 20
+
+    tick_positions = list(range(0, num_indices, tick_step))
+    if ticks_labels is None:
+        ticks_labels = [ str(i) for i in np.arange(1, num_indices+1, 1)]
+    # Set tick labels (centered in bins)
+    ax.set_xticks(np.array(tick_positions))
+    ax.set_xticklabels(ticks_labels, rotation=0)
+    ax.set_yticks(np.array(tick_positions) )
+    ax.set_yticklabels(ticks_labels, rotation=90)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.1)
+    cbar = plt.colorbar(im, cax=cax)
 
 
 # Some helper functon to generate synthetic data
@@ -887,7 +935,7 @@ if __name__ == "__main__":
     # 2d density plot + colorbar + histogram in X and Y directions
     fig3, ax_main3, ax_histx3, ax_histy3, cbar = hist2d_distXY_contour_plot(
     x_angles.flatten(), y_angles.flatten(), method='histogram', contour=True,
-    bins=200, hist_bins=200, colorbar=True, contour_annotations=False,
+    bins=100, hist_bins=100, colorbar=True, contour_annotations=False,
     )
     ax_main3.set_xlabel('X Coordinate')
     ax_main3.set_ylabel('Y Coordinate')
@@ -901,7 +949,7 @@ if __name__ == "__main__":
     plt.savefig("../../examples/plot_2dhistcontour.png")
     plt.show()
 
-
+    """
     ### more test
     fig = plt.figure(figsize=(8, 8))
     gs = GridSpec(2, 2, width_ratios=[2, 8],
@@ -917,7 +965,7 @@ if __name__ == "__main__":
 
     fig, ax_main3, ax_histx3, ax_histy3, cbar = hist2d_distXY_contour_plot(
     x_angles.flatten(), y_angles.flatten(), ax=ax3, fig=fig, method='histogram', contour=True,
-    bins=200, hist_bins=200, colorbar=True, contour_annotations=False,
+    bins=100, hist_bins=100, colorbar=True, contour_annotations=False,
     )
     fig3.suptitle('Custom Contour Levels (Histogram Method)', fontsize=14)
     ax_main3.set_aspect('equal')
@@ -931,4 +979,14 @@ if __name__ == "__main__":
     ax_main3._adjust_histograms()
     # plt.tight_layout()
     plt.savefig("../../examples/plot_2dhistogram.png")
+    plt.show()
+    """
+
+    # test heatmap
+    test_matrix = np.random.rand(20, 20)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    pairwise_headmap(test_matrix, ax)
+    ax.grid(visible=False)
+    plt.tight_layout()
+    plt.savefig("../../examples/plot_heatmap.png")
     plt.show()

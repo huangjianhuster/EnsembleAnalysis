@@ -108,11 +108,14 @@ def angles_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_name)
     """
     atomgroup.universe.trajectory[frame_index]
     angles = [angle.value() for angle in atomgroup.angles \
-              if (angle.atoms[0].name == atom1_name and angle.atoms[1].name == atom2_name and angle.atoms[2].name == atom3_name) or \
-                (angle.atoms[0].name == atom3_name and angle.atoms[1].name == atom2_name and angle.atoms[2].name == atom1_name)]
+              if (angle.atoms[0].name == atom1_name and angle.atoms[1].name == atom2_name \
+                and angle.atoms[2].name == atom3_name) or \
+                (angle.atoms[0].name == atom3_name and angle.atoms[1].name == atom2_name \
+                and angle.atoms[2].name == atom1_name)]
     return np.array(angles)
 
-def dihedrals_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_name, atom4_name):
+def dihedrals_per_frame(frame_index, atomgroup, atom1_name,
+                        atom2_name, atom3_name, atom4_name):
     """
     atomgroup: atomgroup from MDAnalysis
     atom1_name: atomname of the first atom
@@ -123,8 +126,10 @@ def dihedrals_per_frame(frame_index, atomgroup, atom1_name, atom2_name, atom3_na
     """
     atomgroup.universe.trajectory[frame_index]
     dihedral = [dihedral.value() for dihedral in atomgroup.dihedrals \
-              if (dihedral.atoms[0].name == atom1_name and dihedral.atoms[1].name == atom2_name \
-                  and dihedral.atoms[2].name == atom3_name and dihedral.atoms[3].name == atom4_name)]
+              if (dihedral.atoms[0].name == atom1_name \
+                  and dihedral.atoms[1].name == atom2_name \
+                  and dihedral.atoms[2].name == atom3_name \
+                  and dihedral.atoms[3].name == atom4_name)]
     return np.array(dihedral)
 
 def bb_impropers_per_frame(frame_index, atomgroup):
@@ -187,7 +192,8 @@ class Ensemble:
             rmsd_matrix[2]: rmsd of align_select
             rmsd_matrix[3-]: rmsd of rmsd_list
         """
-        R = rms.RMSD(self.universe, self.ref_universe, select=align_select, groupselections=rmsd_list)
+        R = rms.RMSD(self.universe, self.ref_universe,
+                     select=align_select, groupselections=rmsd_list)
         R.run()
         return R.results.rmsd.T
 
@@ -517,6 +523,67 @@ class Ensemble:
         return impropers
 
 
+
+class IdpEnsemble(Ensemble):
+    def __init__(self):
+        super().__init__()
+
+    # distance matrics: from https://doi.org/10.1016/j.bpj.2020.05.015
+    def distance_matrics():
+        """
+        Analyze pairwise C-alpha distances in intrinsically disordered proteins.
+
+        Returns:
+        --------
+        combined_matrix : np.ndarray
+            Combined matrix with median values in upper triangle and
+            standard deviations in lower triangle
+        median_matrix : np.ndarray
+            Matrix of median pairwise distances
+        std_matrix : np.ndarray
+            Matrix of standard deviations of pairwise distances
+        """
+        # Select C-alpha atoms
+        ca_atoms = self.universe.select_atoms('name CA')
+        n_residues = len(ca_atoms)
+
+        print(f"Found {n_residues} C-alpha atoms")
+        print(f"Analyzing {len(u.trajectory)} frames")
+
+        # Initialize array to store all pairwise distances for each frame
+        all_distances = np.zeros((len(self.universe.trajectory), n_residues, n_residues))
+
+        # Calculate pairwise distances for each frame
+        for i, ts in enumerate(self.universe.trajectory):
+            if i+1 % 100 == 0:
+                print(f"Processing frame {i}/{len(self.universe.trajectory)}")
+
+            # Get coordinates of C-alpha atoms
+            ca_coords = ca_atoms.positions
+
+            # Calculate pairwise distance matrix
+            dist_matrix = distance_array(ca_coords, ca_coords)
+            all_distances[i] = dist_matrix
+
+        # Calculate median and standard deviation matrices
+        median_matrix = np.median(all_distances, axis=0)
+        std_matrix = np.std(all_distances, axis=0)
+
+        # Create combined matrix
+        combined_matrix = np.zeros_like(median_matrix)
+
+        # Upper triangle (including diagonal) gets median values
+        upper_indices = np.triu_indices(n_residues)
+        combined_matrix[upper_indices] = median_matrix[upper_indices]
+
+        # Lower triangle gets standard deviation values
+        lower_indices = np.tril_indices(n_residues, k=-1)
+        combined_matrix[lower_indices] = std_matrix[lower_indices]
+
+        # Create residue labels
+        residue_labels = [f"{res.resname}{res.resid}" for res in ca_atoms.residues]
+
+        return combined_matrix, median_matrix, std_matrix, residue_labels
 
 
 

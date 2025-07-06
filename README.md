@@ -87,3 +87,18 @@ plt.show()
 
 ![example2](./examples/plot_2dhistcontour.png)
 
+
+## Heatmap for pariwise matrix visualization
+
+```python
+# test heatmap
+test_matrix = np.random.rand(20, 20)
+fig, ax = plt.subplots(figsize=(8, 6))
+pairwise_headmap(test_matrix, ax)
+ax.grid(visible=False)
+plt.tight_layout()
+# plt.savefig("../../examples/plot_heatmap.png")
+plt.show()
+```
+
+![example3](./examples/plot_heatmap.png)
