@@ -28,8 +28,35 @@ pip install -e .
 ```
 
 # Ensemble analysis examples
+There are three classes defined in the `EnsembleAnalysis.core.ensemble` module:
+1. `Ensemble`: for general ensemble analysis
+2. `IdpEnsemble`: for intrinsically disorder protein ensembles
+3. `FoldedEnsemble`: for folded protein ensembles
 
-To be continued!
+```python
+from EnsembleAnalysis.core.ensemble import *
+
+psf = "path/to/psf"
+trj = "path/to/trj" # xtc, dcd etc format (should be MDAnalysis-friendly)
+# optional
+top = "path/to/top"
+
+en = Ensemble(psf, trj)
+# Basic information
+sequence = en.sequence
+resid = en.resid
+
+# Bacic calculations
+secondary_structure = en.get_ss()
+end2end = en.get_end2end()
+psi = en.get_psi()
+psi_5_10 = en.get_psi('5-10')
+phi = en.get_phi()
+phi_5_10 = en.get_phi(''5-10)
+rmsd = en.get_rmsd() # by default align to the first frame
+rmsf = en.get_rmsf() # CA RMSF values (no alignment performed)
+```
+(more are coming...)
 
 # Plot samples
 
