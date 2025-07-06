@@ -587,6 +587,14 @@ class IdpEnsemble(Ensemble):
 
 
 
+class FoldedEnsemble(Ensemble):
+    def __init__():
+        super().__inin__()
+
+    def solvent_exponsed_area():
+        pass
+
+
 if __name__ == "__main__":
     pdb = "/home2/jianhuang/projects/VAE/dataset/protein_A/step4.1_equilibration.pro.pdb"
     psf = "/home2/jianhuang/projects/VAE/dataset/protein_A/step1_pdbreader.psf"
