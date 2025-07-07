@@ -1,15 +1,35 @@
-# Author: Jian Huang & Shrishti
-# Date: 2023-08-06
-# E-mail: jianhuang@umass.edu
+# Author: Jian Huang
+# email: jianhuang@umass.edu
 
-# Dependencies
 import MDAnalysis as mda
-import MDAnalysis.transformations as trans
-from MDAnalysis.analysis import align
+from MDAnalysis.analysis.dihedrals import Dihedral
 import numpy as np
-import os
+import matplotlib.pyplot as plt
+import MDAnalysis.analysis.rms as rms
+import mdtraj as md
 
-#pip install parmed
+
+# write pdbs into trajectory
+def pdbs2xtc(pdblist, out_xtc):
+    """
+    pdblist: list of pdb paths to be combined together into a single trajectory file
+    out_xtc: output trajectory path
+    """
+    # to determin PDB atoms
+    u = mda.Universe(pdblist[0])
+    with mda.Writer(out_xtc, len(u.atoms)) as xtc_writer:
+        for pdb in pdblist:
+            u.load_new(pdb)
+            xtc_writer.write(u)
+
+    return None
+
+
+def Gaussian_distribution(CV, CVo):
+    kb = 1.86188e3
+    beta = 1/ (1.380649e-23 * 298)
+    expo = beta*0.5*kb*(CV - CVo)
+    return np.exp(-expo)
 
 # only get the protein part of the trajectory
 def extract_pro(psf, xtc):
@@ -41,11 +61,11 @@ def traj_align(psf, xtc, out_xtc, center=True):
 
     !!! default: align the trajectory with respect to the first frame [hard coded!]
     return None
-    """ 
+    """
     u = mda.Universe(psf, xtc)
     ref = mda.Universe(psf, xtc)
     ref.trajectory[0]
-    
+
     # Center protein in the center of the box
     if center:
         protein = u.select_atoms('protein')
@@ -91,7 +111,7 @@ def traj_align_onfly(psf, xtc, out_xtc, center=True):
                 trans.wrap(not_protein)]
 
         u.trajectory.add_transformations(*transforms)
-    
+
     # align using C-alpha atoms
     align.AlignTraj(u, # universe object; trajectory to align
                     ref, # reference
@@ -107,7 +127,7 @@ def heavy_atom_templete(pdb, new_pdb,new_gro):
     heavy_atoms = u.select_atoms('not name H* and not (resname AMN or resname CBX)')
     heavy_atoms.write(new_pdb)
     heavy_atoms.write(new_gro)
-    return None    
+    return None
 
 def CA_atom_templete(pdb, new_pdb,new_gro):
     u = mda.Universe(pdb)
