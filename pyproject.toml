@@ -7,7 +7,7 @@ name = "EnsembleAnalysis"
 version = "0.1.0"
 description = "A simple Python package for analyzing conformational ensembles"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Jian Huang", email = "huangjianhuster@gmail.com"}
@@ -28,12 +28,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "numpy>=2.3.1",
+    # "numpy>=2.2.6",
     "MDAnalysis>=2.9.0",
-    "MDtraj>=1.11.0",
+    "MDtraj>=1.10.0",
     "biopython>=1.85",
-    "scipy>=1.16.0",
-    "matplotlib>=3.10.3",
+    # "scipy>=1.14",
+    # "matplotlib>=3.10.3",
 ]
 
 [project.urls]

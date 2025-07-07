@@ -11,6 +11,9 @@ def generate_psf_from_pdb(pdb, outpsf, N_ter_patch='NTER', C_ter_patch='CTER'):
     gen = PsfGen()
     gen.read_topology(ff_path)
 
+    # alias for HIS
+    gen.alias_residue('HSE', 'HIS')
+
     segid='A'
     gen.add_segment(segid=segid, pdbfile=pdb)
 
