@@ -17,6 +17,19 @@ from matplotlib.ticker import FuncFormatter
 import warnings
 
 
+# Create canvas
+def make_canvs(n_plots, ncols=None):
+    if ncols is None:
+        ncols = math.ceil(math.sqrt(n_plots))
+    nrows = math.ceil(n_plots / ncols)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 3))
+    axes = axes.flatten()
+    # Hide unused axes (if any)
+    for j in range(n_plots, len(axes)):
+        fig.delaxes(axes[j])
+    return fig, axes
+
+
 # Plot histogram
 def hist_plot(arr, ax=None, bins=20, fit=True, **kwargs):
     """
