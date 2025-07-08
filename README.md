@@ -9,7 +9,9 @@ Features:
 
 # Dependencies and installation
 
-1. psfgen: `conda install conda-forge::psfgen`
+0. python>=3.10
+1. bacis packages: `conda install numpy matplotlib scipy pandas mdtraj biopython mdanalysis` 
+2. psfgen: `conda install conda-forge::psfgen`
 
 **Installation**
 

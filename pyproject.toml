@@ -28,12 +28,13 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    # "numpy>=2.2.6",
-    "MDAnalysis>=2.9.0",
-    "MDtraj>=1.10.0",
-    "biopython>=1.85",
-    # "scipy>=1.14",
-    # "matplotlib>=3.10.3",
+    "numpy",
+    "scipy",
+    "pandas",
+    "matplotlib",
+    "biopython",
+    "mdtraj",
+    "mdanalysis"
 ]
 
 [project.urls]
