@@ -3,6 +3,7 @@
 
 # Dependencies
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
@@ -18,7 +19,7 @@ import warnings
 
 
 # Create canvas
-def make_canvs(n_plots, ncols=None):
+def make_canvas(n_plots, ncols=None):
     if ncols is None:
         ncols = math.ceil(math.sqrt(n_plots))
     nrows = math.ceil(n_plots / ncols)
