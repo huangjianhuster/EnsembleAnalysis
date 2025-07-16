@@ -11,17 +11,16 @@
 import os
 import psutil
 import subprocess
-import MDAnalysis as mda
-from MDAnalysis.analysis.dihedrals import Dihedral, Ramachandran
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
-from MDAnalysis.analysis import rms, pca
-import mdtraj as md
 from multiprocessing import Pool
 from functools import partial
+import MDAnalysis as mda
+from MDAnalysis.analysis.dihedrals import Dihedral, Ramachandran
+from MDAnalysis.analysis import distances, contacts, rms, pcs
+import mdtraj as md
 from Bio.PDB import PDBParser, DSSP
-
 mda.warnings.filterwarnings('ignore')
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -149,6 +148,11 @@ def bb_impropers_per_frame(frame_index, atomgroup):
                   improper.atoms[2].type == "CT1" and improper.atoms[3].type == "H") \
                     ]
     return bb_impropers
+
+def get_distances_per_frame(frame_index, atomgroup1, atomgroup2):
+    atomgroup1.universe.trajectory[frame_index]
+    distances = contacts.distance_array(atomgroup1.positions, atomgroup2.positions)
+    return distances
 
 
 class Ensemble:
@@ -529,7 +533,7 @@ class IdpEnsemble(Ensemble):
         super().__init__()
 
     # distance matrics: from https://doi.org/10.1016/j.bpj.2020.05.015
-    def distance_matrics():
+    def pairwise_Ca_distances_matrics():
         """
         Analyze pairwise C-alpha distances in intrinsically disordered proteins.
 
@@ -585,6 +589,60 @@ class IdpEnsemble(Ensemble):
 
         return combined_matrix, median_matrix, std_matrix, residue_labels
 
+    # contact frequencies between two domains (atomgroup selections in general)
+    def contact_freqs(ag1_sele, ag2_sele, cutoff, n_threads=None):
+        """
+        Calculate contact frequencies between all pairs in two atomgroups
+
+
+        """
+        # atom selections
+        ag1 = self.universe.select_atoms(ag1_sele)
+        ag2 = self.universe.select_atoms(ag2_sele)
+        if n_threads:
+            self.available_threads = self.get_available_threads()
+        else:
+            self.available_threads = n_threads
+
+        run_distances = partial(get_distances_per_frame, atomgroup1=ag1, atomgroup2=ag2)
+        with Pool(self.available_threads) as worker_pool:
+            distances_arr = worker_pool.map(run_distances, frames)
+        distances_all = np.array(distances_arr)
+
+        contacts = distances_arr < cutoff
+        contact_freqs = contacts.mean(axis=0)
+        contact_indices = np.argwhere(contact_freqs > 0)
+        contact_values = contact_freqs[contact_freqs > 0]
+        contact_pairs = [((i, j), freq) for (i, j), freq in zip(contact_indices, contact_values)]
+        contact_pairs.sort(key=lambda x: x[1], reverse=True)
+
+
+        return {'distances': distances_all,
+                'contact_freqs': contact_freqs,
+                'contact_pairs': contact_pairs}
+
+    @staticmethod
+    def plot_contact_freqs(contact_freqs, out=None, **kwargs):
+        # Mask zero values
+        masked_freqs = ma.masked_where(contact_freqs == 0, contact_freqs)
+
+        plt.figure(figsize=(8, 6))
+        cmap = kwargs.get('cmap', 'winter')
+        sns.heatmap(masked_freqs, cmap=cmap, mask=(masked_freqs.mask), cbar=True)
+
+        xlabel = kwargs.get('xlabel', 'Residue index')
+        ylabel = kwargs.get('ylabel', 'Residue index')
+        title = kwargs.get('title', 'Contact Frequency')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylable)
+        plt.title(title)
+
+        plt.tight_layout()
+        if out is None:
+            plt.show()
+        else:
+            plt.savefig(f'{out}.png', dpi=300)
+            pass
 
 
 class FoldedEnsemble(Ensemble):
