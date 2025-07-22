@@ -18,7 +18,7 @@ from multiprocessing import Pool
 from functools import partial
 import MDAnalysis as mda
 from MDAnalysis.analysis.dihedrals import Dihedral, Ramachandran
-from MDAnalysis.analysis import distances, contacts, rms, pcs
+from MDAnalysis.analysis import distances, contacts, rms, pcas
 import mdtraj as md
 from Bio.PDB import PDBParser, DSSP
 mda.warnings.filterwarnings('ignore')
