@@ -640,7 +640,7 @@ def pairwise_headmap(matrix, ax, ticks_labels=None, **kwargs):
 
     tick_positions = list(range(0, num_indices, tick_step))
     if ticks_labels is None:
-        ticks_labels = [ str(i) for i in np.arange(1, num_indices+1, 1)]
+        ticks_labels = [ str(i) for i in np.arange(1, num_indices+1, tick_step)]
     # Set tick labels (centered in bins)
     ax.set_xticks(np.array(tick_positions))
     ax.set_xticklabels(ticks_labels, rotation=0)

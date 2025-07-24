@@ -12,6 +12,7 @@ import os
 import psutil
 import subprocess
 import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -22,7 +23,6 @@ from MDAnalysis.analysis import distances, contacts, rms, pca
 import mdtraj as md
 from Bio.PDB import PDBParser, DSSP
 mda.warnings.filterwarnings('ignore')
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 three2one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
                     'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N',
@@ -529,11 +529,11 @@ class Ensemble:
 
 
 class IdpEnsemble(Ensemble):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, psf_file, xtc_file, top_file=None):
+        super().__init__(psf_file, xtc_file, top_file)
 
     # distance matrics: from https://doi.org/10.1016/j.bpj.2020.05.015
-    def pairwise_Ca_distances_matrics():
+    def pairwise_Ca_distances_matrics(self):
         """
         Analyze pairwise C-alpha distances in intrinsically disordered proteins.
 
@@ -552,7 +552,7 @@ class IdpEnsemble(Ensemble):
         n_residues = len(ca_atoms)
 
         print(f"Found {n_residues} C-alpha atoms")
-        print(f"Analyzing {len(u.trajectory)} frames")
+        print(f"Analyzing {len(self.universe.trajectory)} frames")
 
         # Initialize array to store all pairwise distances for each frame
         all_distances = np.zeros((len(self.universe.trajectory), n_residues, n_residues))
@@ -566,7 +566,7 @@ class IdpEnsemble(Ensemble):
             ca_coords = ca_atoms.positions
 
             # Calculate pairwise distance matrix
-            dist_matrix = distance_array(ca_coords, ca_coords)
+            dist_matrix = distances.distance_array(ca_coords, ca_coords)
             all_distances[i] = dist_matrix
 
         # Calculate median and standard deviation matrices
@@ -590,7 +590,7 @@ class IdpEnsemble(Ensemble):
         return combined_matrix, median_matrix, std_matrix, residue_labels
 
     # contact frequencies between two domains (atomgroup selections in general)
-    def contact_freqs(ag1_sele, ag2_sele, cutoff, n_threads=None):
+    def contact_freqs(self, ag1_sele, ag2_sele, cutoff, n_threads=None):
         """
         Calculate contact frequencies between all pairs in two atomgroups
 
