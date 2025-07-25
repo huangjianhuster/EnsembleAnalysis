@@ -646,8 +646,8 @@ class IdpEnsemble(Ensemble):
 
 
 class FoldedEnsemble(Ensemble):
-    def __init__():
-        super().__inin__()
+    def __init__(psf_file, xtc_file, top_file=None):
+        super().__inin__(psf_file, xtc_file, top_file)
 
     def solvent_exponsed_area():
         pass
