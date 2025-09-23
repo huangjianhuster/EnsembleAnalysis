@@ -154,6 +154,31 @@ def get_distances_per_frame(frame_index, atomgroup1, atomgroup2):
     distances = contacts.distance_array(atomgroup1.positions, atomgroup2.positions)
     return distances
 
+# residue level contacts
+def get_contacts_per_frame(frame_index, cutoff, atomgroup1, atomgroup2):
+    atomgroup1.universe.trajectory[frame_index]
+    res1_unique = np.unique(atomgroup1.resids)
+    res2_unique = np.unique(atomgroup2.resids)
+    n_res1 = len(res1_unique)
+    n_res2 = len(res2_unique)
+    res1_index_map = {resid: i for i, resid in enumerate(res1_unique)}
+    res2_index_map = {resid: j for j, resid in enumerate(res2_unique)}
+
+    # print('res1_index_map', res1_index_map)
+    # print('res2_index_map', res2_index_map)
+    # this is atom-wise
+    distances_arr = contacts.distance_array(atomgroup1.positions, atomgroup2.positions)
+    # need to reduce to residue-wise
+    ag1_idx, ag2_idx = np.where(distances_arr < cutoff)
+    res_pairs = {(atomgroup1[ia].resid, atomgroup2[ib].resid) for ia, ib in zip(ag1_idx, ag2_idx)}
+
+    contact_arr = np.zeros((n_res1, n_res2), dtype=int)
+
+    for ia, ib in zip(ag1_idx, ag2_idx):
+        r1, r2 = atomgroup1[ia].resid, atomgroup2[ib].resid
+        contact_arr[res1_index_map[r1], res2_index_map[r2]] = 1
+    # contact_arr = np.where(distances_arr > cutoff, 0, 1)
+    return contact_arr
 
 class Ensemble:
     def __init__(self, psf_file, xtc_file, top_file=None):
@@ -526,6 +551,35 @@ class Ensemble:
         impropers = np.asarray(result)
         return impropers
 
+    def get_contactmap(self, cutoff=4.5, ag1_selection, ag2_selection, frames):
+        """
+        Calculate residue-level contactmap of two atomgroup selections
+
+        cutoff: cutoff to count contacts
+        ag1_selection: selection str for atomgroup 1
+        ag2_selection: selection str for atomgroup 2
+
+        return: array with a shape of (num_of_frames, num_of_ag1, num_of_ag2)
+        """
+        global n_jobs
+        u = mda.Universe(psf, xtc)
+        ag1 = u.select_atoms(ag1_selection)
+        ag2 = u.select_atoms(ag2_selection)
+
+        if frames is None:
+            frames = range(u.trajectory.n_frames)
+
+        run_distances = partial(get_contacts_per_frame, cutoff=cutoff, atomgroup1=ag1, atomgroup2=ag2)
+        with Pool(n_jobs) as worker_pool:
+            contacts_arr = worker_pool.map(run_distances, frames)
+        contacts_arr = np.array(contacts_arr)
+        # average over frames
+        contact_freqs = contacts_arr.mean(axis=0)
+        contact_indices = np.argwhere(contact_freqs > 0)
+        contact_values = contact_freqs[contact_freqs > 0]
+        contact_pairs = [((i, j), freq) for (i, j), freq in zip(contact_indices, contact_values)]
+        contact_pairs.sort(key=lambda x: x[1], reverse=True)
+        return contact_freqs, contact_pairs
 
 
 class IdpEnsemble(Ensemble):
@@ -589,60 +643,7 @@ class IdpEnsemble(Ensemble):
 
         return combined_matrix, median_matrix, std_matrix, residue_labels
 
-    # contact frequencies between two domains (atomgroup selections in general)
-    def contact_freqs(self, ag1_sele, ag2_sele, cutoff, n_threads=None):
-        """
-        Calculate contact frequencies between all pairs in two atomgroups
 
-
-        """
-        # atom selections
-        ag1 = self.universe.select_atoms(ag1_sele)
-        ag2 = self.universe.select_atoms(ag2_sele)
-        if n_threads:
-            self.available_threads = self.get_available_threads()
-        else:
-            self.available_threads = n_threads
-
-        run_distances = partial(get_distances_per_frame, atomgroup1=ag1, atomgroup2=ag2)
-        with Pool(self.available_threads) as worker_pool:
-            distances_arr = worker_pool.map(run_distances, frames)
-        distances_all = np.array(distances_arr)
-
-        contacts = distances_arr < cutoff
-        contact_freqs = contacts.mean(axis=0)
-        contact_indices = np.argwhere(contact_freqs > 0)
-        contact_values = contact_freqs[contact_freqs > 0]
-        contact_pairs = [((i, j), freq) for (i, j), freq in zip(contact_indices, contact_values)]
-        contact_pairs.sort(key=lambda x: x[1], reverse=True)
-
-
-        return {'distances': distances_all,
-                'contact_freqs': contact_freqs,
-                'contact_pairs': contact_pairs}
-
-    @staticmethod
-    def plot_contact_freqs(contact_freqs, out=None, **kwargs):
-        # Mask zero values
-        masked_freqs = ma.masked_where(contact_freqs == 0, contact_freqs)
-
-        plt.figure(figsize=(8, 6))
-        cmap = kwargs.get('cmap', 'winter')
-        sns.heatmap(masked_freqs, cmap=cmap, mask=(masked_freqs.mask), cbar=True)
-
-        xlabel = kwargs.get('xlabel', 'Residue index')
-        ylabel = kwargs.get('ylabel', 'Residue index')
-        title = kwargs.get('title', 'Contact Frequency')
-        plt.xlabel(xlabel)
-        plt.ylabel(ylable)
-        plt.title(title)
-
-        plt.tight_layout()
-        if out is None:
-            plt.show()
-        else:
-            plt.savefig(f'{out}.png', dpi=300)
-            pass
 
 
 class FoldedEnsemble(Ensemble):

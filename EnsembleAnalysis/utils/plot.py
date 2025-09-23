@@ -610,8 +610,8 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None,
 
     return fig, ax_main, ax_histx, ax_histy, cbar_ax
 
-
-def pairwise_headmap(matrix, ax, ticks_labels=None, **kwargs):
+"""
+def pairwise_heatmap(matrix, ax, ticks_labels=None, **kwargs):
 
     num_indices = matrix.shape[0]
     cmap =  kwargs.get('cmap', 'RdYlBu_r')
@@ -650,6 +650,145 @@ def pairwise_headmap(matrix, ax, ticks_labels=None, **kwargs):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="3%", pad=0.1)
     cbar = plt.colorbar(im, cax=cax)
+"""
+
+
+def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwargs):
+    """
+    Create a pairwise heatmap visualization with customizable tick labels.
+
+    Parameters:
+    -----------
+    matrix : numpy.ndarray
+        2D array representing the data to be visualized as a heatmap.
+        Should be square for pairwise comparisons.
+    ax : matplotlib.axes.Axes
+        The axes object to plot the heatmap on.
+    x_tick_labels : list or None, optional
+        Custom labels for x-axis ticks. If None, automatic numeric labels will be generated.
+        Length should match the number of columns or be None.
+    y_tick_labels : list or None, optional
+        Custom labels for y-axis ticks. If None, automatic numeric labels will be generated.
+        Length should match the number of rows or be None.
+    **kwargs : dict
+        Additional keyword arguments for customization:
+        - cmap : str, default 'RdYlBu_r'
+            Colormap for the heatmap
+        - grid_color : str, default 'white'
+            Color of the grid lines
+        - grid_linewidth : float, default 0.1
+            Width of the grid lines
+        - colorbar_size : str, default '3%'
+            Size of the colorbar relative to the main plot
+        - colorbar_pad : float, default 0.1
+            Padding between main plot and colorbar
+        - x_rotation : float, default 0
+            Rotation angle for x-axis tick labels
+        - y_rotation : float, default 90
+            Rotation angle for y-axis tick labels
+
+    Returns:
+    --------
+    tuple
+        (im, cbar) where im is the image object and cbar is the colorbar object
+
+    Example:
+    --------
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+    >>>
+    >>> # Create sample data
+    >>> matrix = np.random.rand(10, 10)
+    >>> fig, ax = plt.subplots(figsize=(8, 6))
+    >>>
+    >>> # Basic usage
+    >>> im, cbar = pairwise_heatmap(matrix, ax)
+    >>>
+    >>> # With custom labels and colormap
+    >>> x_labels = [f'Gene_{i}' for i in range(10)]
+    >>> y_labels = [f'Sample_{i}' for i in range(10)]
+    >>> im, cbar = pairwise_heatmap(matrix, ax,
+    ...                           x_tick_labels=x_labels,
+    ...                           y_tick_labels=y_labels,
+    ...                           cmap='viridis',
+    ...                           x_rotation=45)
+    """
+
+    # Extract parameters with defaults
+    cmap = kwargs.get('cmap', 'RdYlBu_r')
+    grid_color = kwargs.get('grid_color', 'white')
+    grid_linewidth = kwargs.get('grid_linewidth', 0.1)
+    colorbar_size = kwargs.get('colorbar_size', '3%')
+    colorbar_pad = kwargs.get('colorbar_pad', 0.1)
+    x_rotation = kwargs.get('x_rotation', 0)
+    y_rotation = kwargs.get('y_rotation', 90)
+
+    num_rows, num_cols = matrix.shape
+
+    # Create the main heatmap using imshow
+    im = ax.imshow(matrix, cmap=cmap, aspect='equal')
+
+    # Set axis limits
+    ax.set_xlim(-0.5, num_cols - 0.5)
+    ax.set_ylim(num_rows - 0.5, -0.5)
+
+    # Add grid lines
+    for i in range(num_rows + 1):
+        ax.axhline(i - 0.5, color=grid_color, linewidth=grid_linewidth)
+    for i in range(num_cols + 1):
+        ax.axvline(i - 0.5, color=grid_color, linewidth=grid_linewidth)
+
+    # Determine tick positions based on matrix size
+    def get_tick_step(size):
+        if size <= 20:
+            return 1
+        elif size <= 50:
+            return 5
+        elif size <= 100:
+            return 10
+        else:
+            return 20
+
+    # Handle x-axis ticks and labels
+    x_tick_step = get_tick_step(num_cols)
+    x_tick_positions = list(range(0, num_cols, x_tick_step))
+
+    if x_tick_labels is None:
+        x_tick_labels = [str(i) for i in np.arange(1, num_cols + 1, x_tick_step)]
+    else:
+        # Validate length and filter if needed
+        if len(x_tick_labels) == num_cols:
+            x_tick_labels = [x_tick_labels[i] for i in x_tick_positions]
+        elif len(x_tick_labels) != len(x_tick_positions):
+            raise ValueError(f"x_tick_labels length ({len(x_tick_labels)}) must match either "
+                           f"matrix columns ({num_cols}) or tick positions ({len(x_tick_positions)})")
+
+    # Handle y-axis ticks and labels
+    y_tick_step = get_tick_step(num_rows)
+    y_tick_positions = list(range(0, num_rows, y_tick_step))
+
+    if y_tick_labels is None:
+        y_tick_labels = [str(i) for i in np.arange(1, num_rows + 1, y_tick_step)]
+    else:
+        # Validate length and filter if needed
+        if len(y_tick_labels) == num_rows:
+            y_tick_labels = [y_tick_labels[i] for i in y_tick_positions]
+        elif len(y_tick_labels) != len(y_tick_positions):
+            raise ValueError(f"y_tick_labels length ({len(y_tick_labels)}) must match either "
+                           f"matrix rows ({num_rows}) or tick positions ({len(y_tick_positions)})")
+
+    # Set ticks and labels
+    ax.set_xticks(np.array(x_tick_positions))
+    ax.set_xticklabels(x_tick_labels, rotation=x_rotation)
+    ax.set_yticks(np.array(y_tick_positions))
+    ax.set_yticklabels(y_tick_labels, rotation=y_rotation)
+
+    # Add colorbar
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size=colorbar_size, pad=colorbar_pad)
+    cbar = plt.colorbar(im, cax=cax)
+
+    return im, cbar
 
 
 # Some helper functon to generate synthetic data
@@ -917,6 +1056,7 @@ def auto_axis_limits(ax, which='xy', scale_factor=1.5):
 
 
 if __name__ == "__main__":
+    """
     # Generate all data
     line_data = generate_line_plot_data()
     hist_data = generate_histogram_data()
@@ -936,7 +1076,8 @@ if __name__ == "__main__":
     # ax1 for hist
     hist_plot(hist_data['normal'], ax=ax1, bins=50, fit=True)
     # ax2 for errorbar
-    errorbar_plot(errorbar_data['linear_trend']['x'], errorbar_data['linear_trend']['y'], yerror=errorbar_data['linear_trend']['yerr'], ax=ax2)
+    errorbar_plot(errorbar_data['linear_trend']['x'], errorbar_data['linear_trend']['y'],\
+            yerror=errorbar_data['linear_trend']['yerr'], ax=ax2)
     # ax3 for 2d histogram
     hist2d_contour_plot(x_angles, y_angles, bins=100, fig=fig, ax=ax3)
 
@@ -963,7 +1104,6 @@ if __name__ == "__main__":
     plt.savefig("../../examples/plot_2dhistcontour.png")
     plt.show()
 
-    """
     ### more test
     fig = plt.figure(figsize=(8, 8))
     gs = GridSpec(2, 2, width_ratios=[2, 8],
@@ -999,7 +1139,7 @@ if __name__ == "__main__":
     # test heatmap
     test_matrix = np.random.rand(20, 20)
     fig, ax = plt.subplots(figsize=(8, 6))
-    pairwise_headmap(test_matrix, ax)
+    pairwise_heatmap(test_matrix, ax)
     ax.grid(visible=False)
     plt.tight_layout()
     plt.savefig("../../examples/plot_heatmap.png")
