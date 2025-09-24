@@ -610,48 +610,6 @@ def hist2d_distXY_contour_plot(x, y, ax=None, fig=None,
 
     return fig, ax_main, ax_histx, ax_histy, cbar_ax
 
-"""
-def pairwise_heatmap(matrix, ax, ticks_labels=None, **kwargs):
-
-    num_indices = matrix.shape[0]
-    cmap =  kwargs.get('cmap', 'RdYlBu_r')
-
-    # Create the main heatmap using imshow with combined colors
-    im = ax.imshow(matrix, cmap=cmap, aspect='equal')
-
-    # Add grid lines to mimic heatmap appearance
-    ax.set_xlim(-0.5, num_indices - 0.5)
-    ax.set_ylim(num_indices - 0.5, -0.5)
-
-    # Add subtle grid lines
-    for i in range(num_indices + 1):
-        ax.axhline(i - 0.5, color='white', linewidth=0.1)
-        ax.axvline(i - 0.5, color='white', linewidth=0.1)
-
-    # Determine tick positions - show every nth residue to avoid crowding
-    if num_indices <= 20:
-        tick_step = 1
-    elif num_indices <= 50:
-        tick_step = 5
-    elif num_indices <= 100:
-        tick_step = 10
-    else:
-        tick_step = 20
-
-    tick_positions = list(range(0, num_indices, tick_step))
-    if ticks_labels is None:
-        ticks_labels = [ str(i) for i in np.arange(1, num_indices+1, tick_step)]
-    # Set tick labels (centered in bins)
-    ax.set_xticks(np.array(tick_positions))
-    ax.set_xticklabels(ticks_labels, rotation=0)
-    ax.set_yticks(np.array(tick_positions) )
-    ax.set_yticklabels(ticks_labels, rotation=90)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=0.1)
-    cbar = plt.colorbar(im, cax=cax)
-"""
-
 
 def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwargs):
     """
@@ -672,6 +630,8 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
         Length should match the number of rows or be None.
     **kwargs : dict
         Additional keyword arguments for customization:
+        - x_tick_step: int, automatically defined if not given
+        - y_tick_step: int, automatically defined if not given
         - cmap : str, default 'RdYlBu_r'
             Colormap for the heatmap
         - grid_color : str, default 'white'
@@ -722,6 +682,8 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     colorbar_pad = kwargs.get('colorbar_pad', 0.1)
     x_rotation = kwargs.get('x_rotation', 0)
     y_rotation = kwargs.get('y_rotation', 90)
+    x_tick_step = kwargs.get('x_tick_step', None)
+    y_tick_step = kwargs.get('y_tick_step', None)
 
     num_rows, num_cols = matrix.shape
 
@@ -750,7 +712,7 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
             return 20
 
     # Handle x-axis ticks and labels
-    x_tick_step = get_tick_step(num_cols)
+    x_tick_step = get_tick_step(num_cols) if x_tick_step is None else x_tick_step
     x_tick_positions = list(range(0, num_cols, x_tick_step))
 
     if x_tick_labels is None:
@@ -764,7 +726,7 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
                            f"matrix columns ({num_cols}) or tick positions ({len(x_tick_positions)})")
 
     # Handle y-axis ticks and labels
-    y_tick_step = get_tick_step(num_rows)
+    y_tick_step = get_tick_step(num_rows) if y_tick_step is None else y_tick_step
     y_tick_positions = list(range(0, num_rows, y_tick_step))
 
     if y_tick_labels is None:
@@ -782,6 +744,16 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     ax.set_xticklabels(x_tick_labels, rotation=x_rotation)
     ax.set_yticks(np.array(y_tick_positions))
     ax.set_yticklabels(y_tick_labels, rotation=y_rotation)
+
+    # turn off major grid
+    ax.grid(False, which="major", axis="x")
+    ax.grid(False, which="major", axis="y")
+
+    # Add dashed grid lines for every row and column
+    for i in range(1, num_rows):
+        ax.axhline(i - 0.5, color='gray', linewidth=0.3, linestyle='--', alpha=0.6)
+    for i in range(1, num_cols):
+        ax.axvline(i - 0.5, color='gray', linewidth=0.3, linestyle='--', alpha=0.6)
 
     # Add colorbar
     divider = make_axes_locatable(ax)
