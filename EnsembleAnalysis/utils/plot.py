@@ -688,7 +688,7 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     num_rows, num_cols = matrix.shape
 
     # Create the main heatmap using imshow
-    im = ax.imshow(matrix, cmap=cmap, aspect='equal')
+    im = ax.imshow(matrix, cmap=cmap, aspect='auto')
 
     # Set axis limits
     ax.set_xlim(-0.5, num_cols - 0.5)
