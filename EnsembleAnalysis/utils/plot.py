@@ -9,14 +9,14 @@ from matplotlib.colors import LogNorm
 import matplotlib as mpl
 from matplotlib.gridspec import GridSpec
 import matplotlib.colors as mcolors
+from matplotlib import ticker
+from matplotlib.ticker import FuncFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.transforms import ScaledTranslation
 from scipy.stats import norm
 from scipy.stats import gaussian_kde
 from scipy.ndimage import gaussian_filter
-from matplotlib import ticker
-from matplotlib.ticker import FuncFormatter
 import warnings
-
 
 # Create canvas
 def make_canvas(n_plots, ncols=None):
@@ -166,6 +166,48 @@ def format_ticks(ax, which='x', fmt='.2f'):
             raise ValueError("Z-axis formatting requires a 3D axes object")
     else:
         raise ValueError(f"Invalid axis '{which}'. Must be 'x', 'y', or 'z'")
+
+
+def add_subplot_label(fig, ax, label, offset_x=40, offset_y=30, fontsize=14, fontweight='bold', color='black'):
+    """
+    Add an alphabetical label to the upper left corner outside of a subplot.
+    Position is independent of figure size and aspect ratio.
+
+    Parameters:
+    -----------
+    ax : matplotlib.axes.Axes
+        The axes object to label
+    label : str
+        The label text (e.g., 'A', 'B', 'C', 'D')
+    offset_x : float, default=10 pixels
+        Horizontal offset as pixels from the left spine
+        (positive = left of spine, negative = right of spine)
+    offset_y : float, default=10 pixels
+        Vertical offset as pixels above the top spine
+        (positive = above spine, negative = below spine)
+    fontsize : int, default=14
+        Font size for the label
+    fontweight : str, default='bold'
+        Font weight for the label
+    color : str, default='black'
+        Color of the label text
+    """
+    # Use axes coordinates for size-independent positioning
+    # Position relative to axes: (0,0) = bottom-left, (1,1) = top-right
+    # Negative values place labels outside the axes boundaries
+
+
+    offset_x_inches, offset_y_inches = - offset_x / fig.dpi, offset_y / fig.dpi
+    offset = ScaledTranslation(offset_x_inches, offset_y_inches, fig.dpi_scale_trans)
+
+    # Add text using axes coordinates (transform=ax.transAxes)
+    ax.text(0, 1, label,
+            transform=ax.transAxes + offset,  # Use axes coordinates
+            fontsize=fontsize, fontweight=fontweight,
+            color=color, ha='center', va='center',
+            bbox=dict(boxstyle='square,pad=0.3', facecolor='white',
+                     edgecolor='none', linewidth=1),
+            clip_on=False)  # Allow text to appear outside axes boundaries
 
 
 # Plot Ramachandra plot
@@ -688,7 +730,7 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     num_rows, num_cols = matrix.shape
 
     # Create the main heatmap using imshow
-    im = ax.imshow(matrix, cmap=cmap, aspect='auto')
+    im = ax.imshow(matrix, cmap=cmap, aspect='equal')
 
     # Set axis limits
     ax.set_xlim(-0.5, num_cols - 0.5)
@@ -744,6 +786,8 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     ax.set_xticklabels(x_tick_labels, rotation=x_rotation)
     ax.set_yticks(np.array(y_tick_positions))
     ax.set_yticklabels(y_tick_labels, rotation=y_rotation)
+
+    ax.tick_params(direction='out')
 
     # turn off major grid
     ax.grid(False, which="major", axis="x")
