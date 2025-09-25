@@ -133,4 +133,4 @@ plt.show()
 ![example3](./examples/plot_heatmap.png)
 
 Check more examples under `examples/contactmaps/`
-![example4](./examples/contactmaps/zoomin.png)
+![example4](./examples/contactmaps/contactmap_out_zoomin.png)

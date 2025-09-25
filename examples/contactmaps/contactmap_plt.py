@@ -9,7 +9,7 @@ from collections import OrderedDict
 import EnsembleAnalysis.utils.plot as jplt
 
 
-datafile = './contactmap.txt'
+datafile = 'contactmap.txt'
 outpng = datafile.split(".")[0]+"_out"
 
 # this is the actual residue index for the contactmap matrix
