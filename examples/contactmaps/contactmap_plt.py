@@ -52,7 +52,7 @@ data = ma.masked_where(data == 0, data)
 ylabels = [str(i) for i in np.arange(xzoomin_starts, xzoomin_starts + data.shape[0])]
 xlabels = [str(i) for i in np.arange(ystarts, ystarts + data.shape[1])]
 
-fig, ax = plt.subplots(1,1,figsize=(5,6))
+fig, ax = plt.subplots(1,1,figsize=(5,3))
 im, cbar = jplt.pairwise_heatmap(data, ax,
                       x_tick_labels=xlabels,
                       y_tick_labels=ylabels,
