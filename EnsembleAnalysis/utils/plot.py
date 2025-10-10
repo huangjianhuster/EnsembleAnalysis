@@ -680,6 +680,8 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
             Color of the grid lines
         - grid_linewidth : float, default 0.1
             Width of the grid lines
+        - grid_interval : int, default 1
+            Interval of the grid lines
         - colorbar_size : str, default '3%'
             Size of the colorbar relative to the main plot
         - colorbar_pad : float, default 0.1
@@ -720,6 +722,7 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     cmap = kwargs.get('cmap', 'RdYlBu_r')
     grid_color = kwargs.get('grid_color', 'white')
     grid_linewidth = kwargs.get('grid_linewidth', 0.1)
+    grid_interval = kwargs.get('grid_interval', 1)
     colorbar_size = kwargs.get('colorbar_size', '3%')
     colorbar_pad = kwargs.get('colorbar_pad', 0.1)
     x_rotation = kwargs.get('x_rotation', 0)
@@ -735,12 +738,6 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     # Set axis limits
     ax.set_xlim(-0.5, num_cols - 0.5)
     ax.set_ylim(num_rows - 0.5, -0.5)
-
-    # Add grid lines
-    for i in range(num_rows + 1):
-        ax.axhline(i - 0.5, color=grid_color, linewidth=grid_linewidth)
-    for i in range(num_cols + 1):
-        ax.axvline(i - 0.5, color=grid_color, linewidth=grid_linewidth)
 
     # Determine tick positions based on matrix size
     def get_tick_step(size):
@@ -794,10 +791,10 @@ def pairwise_heatmap(matrix, ax, x_tick_labels=None, y_tick_labels=None, **kwarg
     ax.grid(False, which="major", axis="y")
 
     # Add dashed grid lines for every row and column
-    for i in range(1, num_rows):
-        ax.axhline(i - 0.5, color='gray', linewidth=0.3, linestyle='--', alpha=0.6)
-    for i in range(1, num_cols):
-        ax.axvline(i - 0.5, color='gray', linewidth=0.3, linestyle='--', alpha=0.6)
+    for i in range(1, num_rows, grid_interval):
+        ax.axhline(i - 0.5, color=grid_color, linewidth=grid_linewidth, linestyle='--', alpha=0.6)
+    for i in range(1, num_cols, grid_interval):
+        ax.axvline(i - 0.5, color=grid_color, linewidth=grid_linewidth, linestyle='--', alpha=0.6)
 
     # Add colorbar
     divider = make_axes_locatable(ax)
