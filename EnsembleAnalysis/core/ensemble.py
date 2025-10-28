@@ -551,7 +551,7 @@ class Ensemble:
         impropers = np.asarray(result)
         return impropers
 
-    def get_contactmap(self, cutoff=4.5, ag1_selection, ag2_selection, frames):
+    def get_contactmap(self, ag1_selection, ag2_selection, frames, cutoff = 4.5):
         """
         Calculate residue-level contactmap of two atomgroup selections
 
