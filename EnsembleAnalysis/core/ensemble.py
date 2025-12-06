@@ -24,11 +24,13 @@ import mdtraj as md
 from Bio.PDB import PDBParser, DSSP
 mda.warnings.filterwarnings('ignore')
 
-three2one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
-                    'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N',
-                    'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W',
-                    'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M',
-                    'HSD': 'H', 'HSE': 'H'}
+three2one = {
+            'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+            'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N',
+            'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W',
+            'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M',
+            'HSD': 'H', 'HSE': 'H'
+            }
 
 # from MDanalysis: https://userguide.mdanalysis.org/stable/examples/analysis/custom_parallel_analysis.html
 def radgyr_per_frame(frame_index, atomgroup, masses):
