@@ -9,9 +9,13 @@ Features:
 
 # Dependencies and installation
 
-0. python>=3.10
-1. bacis packages: `conda install numpy matplotlib scipy pandas mdtraj biopython mdanalysis`
-2. psfgen: `conda install conda-forge::psfgen`
+The python version >= 3.10 (tested under 3.10, but newer versions should also work)
+
+```bash
+conda install numpy matplotlib scipy pandas mdtraj biopython mdanalysis
+conda install conda-forge::psfgen
+```
+
 
 **Installation**
 
