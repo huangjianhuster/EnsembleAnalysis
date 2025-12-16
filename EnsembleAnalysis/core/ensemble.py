@@ -10,18 +10,16 @@
 # Dependencies
 import os
 import psutil
-import subprocess
 import warnings
+import parmed as pmd
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 import numpy as np
-import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from functools import partial
 import MDAnalysis as mda
 from MDAnalysis.analysis.dihedrals import Dihedral, Ramachandran
 from MDAnalysis.analysis import distances, contacts, rms, pca
 import mdtraj as md
-from Bio.PDB import PDBParser, DSSP
 mda.warnings.filterwarnings('ignore')
 
 three2one = {
@@ -56,24 +54,6 @@ def radgyr_per_frame(frame_index, atomgroup, masses):
     rog_sq = np.sum(masses*sq_rs, axis=1)/np.sum(masses)
     # square root and return
     return np.sqrt(rog_sq)
-
-# use "DSSP" for secondary structure calculation
-# deprecated due to slow calculation speed
-def dssp_per_frame(frame_index, atomgroup):
-    # index the trajectory to set it to the frame_index frame
-    atomgroup.universe.trajectory[frame_index]
-    tmp_pdb = "tmp.pdb"
-    atomgroup.write(tmp_pdb)
-    structure = PDBParser(QUIET=True).get_structure("structure_id", tmp_pdb)
-    model = structure[0]
-    dssp = DSSP(model, tmp_pdb, dssp='mkdssp')
-    resid = []
-    ss = []
-    for i,j in zip(list(dssp.keys()), list(model.get_residues())):
-        # resid.append(dssp[i][0])
-        ss.append(dssp[i][2])
-        resid.append(j.full_id[-1][1])
-    return resid, ss
 
 def end2end_per_frame(frame_index, atomgroup):
     # index the trajectory to set it to the frame_index frame
@@ -265,13 +245,6 @@ class Ensemble:
         available_threads = total_threads - used_threads
         return available_threads
 
-    def get_ss_deprecated(self):
-        ss = []
-        for i in np.arange(self.n_frames):
-            res_idx, dssp = dssp_per_frame(i, self.protein)
-            ss.append(dssp)
-        return res_idx, dssp
-
     def get_ss(self):
         if self.xtc.endswith("xtc"):
             traj = md.load(self.xtc, top=self.psf)
@@ -462,84 +435,57 @@ class Ensemble:
 
     # MDAnalysis provides us with Dihedral module:
     # https://docs.mdanalysis.org/1.1.0/documentation_pages/analysis/dihedrals.html
-    def get_phi(self, res_selection=None):
+    def get_phi(self, selection="protein", **kwarg):
         """
         by default, the first residue has no phi;
-        All residue phi angles will be calculated if res_selection is not given.
-            res_selection: (could be str) "5-10" means residue index from 5 to 10 will be calculated.
+        **kwarg: paramters for the run() func in mdanalysis
         """
-        if res_selection:
-            selection = f"protein and resid {res_selection}"
-            r = self.universe.select_atoms(selection)
-            ags = [res.phi_selection() for res in r.residues]
-            R = Dihedral(ags).run()
-        else:
-            selection = "protein"    # res_selection = "5-10"
-            r = self.universe.select_atoms(selection)
-            ags = [res.phi_selection() for res in r.residues[1:]]
-            R = Dihedral(ags).run()
+        r = self.universe.select_atoms(selection)
+        ags = [res.phi_selection() for res in r.residues]
+        # remove None type selection
+        ags = [ag for ag in ags if ag is not None]
+        R = Dihedral(ags).run(**kwarg)
         return R.results.angles
 
-    def get_psi(self, res_selection=None):
+    def get_psi(self, selection="protein", **kwarg):
         """
         by default, the last residue has no psi;
-        All residue psi angles will be calculated if res_selection is not given.
-            res_selection: (could be str) "5-10" means residue index from 5 to 10 will be calculated.
+        **kwarg: paramters for the run() func in mdanalysis
         """
-        if res_selection:
-            selection = f"protein and resid {res_selection}"
-            r = self.universe.select_atoms(selection)
-            ags = [res.psi_selection() for res in r.residues]
-            R = Dihedral(ags).run()
-        else:
-            selection = "protein"    # res_selection = "5-10"
-            r = self.universe.select_atoms(selection)
-            ags = [res.psi_selection() for res in r.residues[:-1]]
-            R = Dihedral(ags).run()
+        r = self.universe.select_atoms(selection)
+        ags = [res.psi_selection() for res in r.residues]
+        # remove None type selection
+        ags = [ag for ag in ags if ag is not None]            
+        R = Dihedral(ags).run(**kwarg)
         return R.results.angles
 
-    def get_omega(self, res_selection=None):
+    def get_omega(self, selection="protein", **kwarg):
         """
         by default, the last residue has no psi;
-        All residue omega angles will be calculated if res_selection is not given.
-            res_selection: (could be str) "5-10" means residue index from 5 to 10 will be calculated.
+        **kwarg: paramters for the run() func in mdanalysis
         """
-        if res_selection:
-            selection = f"protein and resid {res_selection}"
-            r = self.universe.select_atoms(selection)
-            ags = [res.omega_selection() for res in r.residues]
-            R = Dihedral(ags).run()
-        else:
-            selection = "protein"    # res_selection = "5-10"
-            r = self.universe.select_atoms(selection)
-            ags = [res.omega_selection() for res in r.residues[:-1]]
-            R = Dihedral(ags).run()
+        r = self.universe.select_atoms(selection)
+        ags = [res.omega_selection() for res in r.residues]
+        # remove None type selection
+        ags = [ag for ag in ags if ag is not None]
+        R = Dihedral(ags).run(**kwarg)
         return R.results.angles
 
-    def get_chi1(self, res_selection=None):
+    def get_chi1(self, selection="protein", **kwarg):
         """
         All residue chi1 angles will be calculated if res_selection is not given.
-            res_selection: (could be str) "5-10" means residue index from 5 to 10 will be calculated.
+        **kwarg: paramters for the run() func in mdanalysis
         """
-        if res_selection:
-            selection = f"protein and resid {res_selection} and not (resname GLY ALA)"
-        else:
-            selection = "protein and not (resname GLY ALA)"    # res_selection = "5-10"
         r = self.universe.select_atoms(selection)
         ags = [res.chi1_selection() for res in r.residues]
-        R = Dihedral(ags).run()
+        R = Dihedral(ags).run(**kwarg)
         return R.results.angles
 
-    def get_bb_impropers(self, res_selection=None, n_threads=None):
+    def get_bb_impropers(self, selection="protein", n_threads=None):
         """
         All residue backbone improper dihedrals will be calculated if res_selection is not given.
-            res_selection: (could be str) "5-10" means residue index from 5 to 10 will be calculated.
+            **kwarg: paramters for the run() func in mdanalysis
         """
-        if res_selection:
-            selection = f"protein and resid {res_selection}"
-        else:
-            selection = "protein"    # res_selection = "5-10"
-
         run_per_frame = partial(bb_impropers_per_frame,
                         atomgroup=self.universe.select_atoms(selection))
 
@@ -649,8 +595,8 @@ class IdpEnsemble(Ensemble):
 
 
 class FoldedEnsemble(Ensemble):
-    def __init__(psf_file, xtc_file, top_file=None):
-        super().__inin__(psf_file, xtc_file, top_file)
+    def __init__(psf_file, xtc_file, top_file):
+        super().__init__(psf_file, xtc_file, top_file)
 
     def solvent_exponsed_area():
         pass
