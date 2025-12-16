@@ -30,6 +30,13 @@ three2one = {
             'HSD': 'H', 'HSE': 'H'
             }
 
+def get_available_threads():
+    """Get the number of available threads in the current environment."""
+    total_threads = os.cpu_count()
+    used_threads = psutil.cpu_count(logical=False)  # Physical cores
+    available_threads = total_threads - used_threads
+    return available_threads
+
 # from MDanalysis: https://userguide.mdanalysis.org/stable/examples/analysis/custom_parallel_analysis.html
 def radgyr_per_frame(frame_index, atomgroup, masses):
     # index the trajectory to set it to the frame_index frame
@@ -237,13 +244,6 @@ class Ensemble:
         self.rg = rg
         return rg
 
-    @staticmethod
-    def get_available_threads():
-        """Get the number of available threads in the current environment."""
-        total_threads = os.cpu_count()
-        used_threads = psutil.cpu_count(logical=False)  # Physical cores
-        available_threads = total_threads - used_threads
-        return available_threads
 
     def get_ss(self):
         if self.xtc.endswith("xtc"):
