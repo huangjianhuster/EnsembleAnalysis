@@ -58,9 +58,9 @@ resid = en.resid
 secondary_structure = en.get_ss()
 end2end = en.get_end2end()
 psi = en.get_psi()
-psi_5_10 = en.get_psi('5-10')
+psi_5_10 = en.get_psi('protein and resid 5-10')
 phi = en.get_phi()
-phi_5_10 = en.get_phi(''5-10)
+phi_5_10 = en.get_phi('protein and resid 5-10')
 rmsd = en.get_rmsd() # by default align to the first frame
 rmsf = en.get_rmsf() # CA RMSF values (no alignment performed)
 ```
